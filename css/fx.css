@@ -426,3 +426,14 @@
 }
 @media (prefers-reduced-motion: reduce) { [data-px] { animation: none; } }
 .lite [data-px] { animation: none; }
+
+/* Точечный узор карточек услуг — готовая картинка (img/ui/dots-*.webp). CSS-узор из градиента с маской при первом показе
+   рисовался по 35–45 мс на карточку и давал провалы при прокрутке главной (трассировка Chrome 2026-11-17). */
+.s-card::after { background: url(../img/ui/dots-w.webp) top right / 420px 310px no-repeat; -webkit-mask-image: none; mask-image: none; }
+.s-white::after { background-image: url(../img/ui/dots-b.webp); }
+
+/* Иллюстрации услуг покачиваются только под курсором. Постоянное покачивание держало каждую иллюстрацию в отдельном слое,
+   а вслед за ней в слои уходило и содержимое карточки: при первом показе блока браузер рисовал их заново, и прокрутка
+   главной проваливалась на 35–45 мс (трассировка Chrome 2026-11-17: без иллюстраций провалов нет). */
+.s-art { animation: none; }
+.s-card:hover .s-art { animation: floaty 3.6s ease-in-out infinite; }
