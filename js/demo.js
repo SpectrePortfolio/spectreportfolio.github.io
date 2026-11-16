@@ -32,13 +32,15 @@ const pad2 = (n) => String(n).padStart(2, '0');
 const PULSE = 'M0 60h180l20-40 30 90 34-110 30 100 22-40h180l20-40 30 90 34-110 30 100 22-40h180l20-40 30 90 34-110 30 100 22-40h252';
 const ITEM_SIZES = '(max-width: 560px) 100vw, (max-width: 1100px) 50vw, 25vw';
 
-export function demoHTML(id, L, { words, btn, TG }) {
+// name — название, которое посетитель ввёл в «примерке» на главной (уже экранированное); без него берётся название концепта.
+export function demoHTML(id, L, { words, btn, TG, name: own, nameLen }) {
   const d = DEMOS[id], t = L.demos[id], m = L.more[id], k = L.dock;
+  const name = own || d.name;
   const type = L.concepts.items[id].type;
-  const lock = `${mark(id)}<span class="wm">${d.name}</span>`;
+  const lock = `${mark(id)}<span class="wm">${name}</span>`;
   const full = d.hero === 'full';
   const heroSizes = full ? '100vw' : '(max-width: 860px) 100vw, 50vw';
-  const tick = [...t.nav, d.name, type, t.note];
+  const tick = [...t.nav, name, type, t.note];
   const addBtn = `<button class="d-add" type="button" data-add><span class="d-add-a">${m.act}</span><span class="d-add-b">${m.done}</span><i>${ICO.plus}${ICO.check}</i></button>`;
   const foot = (it) => `<div class="d-item-foot"><span class="d-price">${price(it.p)}</span>${addBtn}</div>`;
   const info = (it, n) => `<article class="lkc-info"><span class="lkc-num">${pad2(n + 1)} / ${pad2(t.items.length)}</span><h3>${it.n}</h3><p>${it.d}</p>${foot(it)}</article>`;
@@ -82,7 +84,7 @@ export function demoHTML(id, L, { words, btn, TG }) {
     const it = t.items[0], hot = it.d.split(', ');
     heroSection = `<section class="zm" id="d-top" data-sp="pin" data-live>
     <div class="zm-stage">
-      <div class="zm-s zm-s1">${pic(d.img[0], 1800, '100vw', d.name, 'fetchpriority="high"')}</div>
+      <div class="zm-s zm-s1">${pic(d.img[0], 1800, '100vw', name, 'fetchpriority="high"')}</div>
       <div class="zm-s zm-s2">${pic(d.img[1], 1400, '100vw', it.n)}</div>
       ${copy.replace('d-hero-copy', 'd-hero-copy zm-copy1')}
       <div class="zm-copy2"><span>${it.n}</span><p>${m.about.d}</p></div>
@@ -94,34 +96,34 @@ export function demoHTML(id, L, { words, btn, TG }) {
     </div>
   </section>`;
   } else {
-    hero = `<div class="d-hero-media">${pic(d.img[0], 1800, heroSizes, d.name, 'fetchpriority="high" data-px=".06"')}</div>${copy}${float}`;
+    hero = `<div class="d-hero-media">${pic(d.img[0], 1800, heroSizes, name, 'fetchpriority="high" data-px=".06"')}</div>${copy}${float}`;
   }
-  if (id === 'fitness') hero += `<div class="d-timer" aria-hidden="true"><i></i><b data-timer="2700">45:00</b><span>${m.stats[1]}</span></div>`;
-  if (id === 'dental') {
+  if (d.timer) hero += `<div class="d-timer" aria-hidden="true"><i></i><b data-timer="2700">45:00</b><span>${m.stats[1]}</span></div>`;
+  if (d.glass) {
     hero += `<div class="d-glass d-glass-a"><b>${d.stats[2]}</b><span>${m.stats[2]}</span></div>
     <div class="d-glass d-glass-b">${ICO.clock}<div>${d.opts[1][1].map((v, i) => `<em class="${i === 1 ? 'on' : ''}">${v}</em>`).join('')}</div></div>`;
   }
 
   // ---------- каталог ----------
   let catalog;
-  if (id === 'shop') {
+  if (d.list === 'lkc') {
     catalog = `<div class="lkc" data-look>
       <div class="lkc-stage">${t.items.map((it, n) => `<button class="lkc-it" type="button" data-look-i="${n}" aria-label="${it.n}">${pic(d.img[2 + n], 800, '(max-width: 860px) 60vw, 30vw', it.n, 'loading="lazy"')}</button>`).join('')}</div>
       <div class="lkc-side">${t.items.map(info).join('')}${navBtns}</div>
     </div>`;
-  } else if (id === 'restaurant') {
+  } else if (d.list === 'orb') {
     // круг из тарелок: активное блюдо наверху, его описание в центре
     catalog = `<div class="orb" data-look="orbit" data-live>
       <div class="orb-ring">${[0, 1, 2, 3, 0, 1, 2, 3].map((n, i) => `<button class="lkc-it orb-it" type="button" data-look-i="${i}" style="--n:${i}" aria-label="${t.items[n].n}">${pic(d.img[2 + n], 800, '(max-width: 860px) 26vw, 200px', t.items[n].n, 'loading="lazy"')}</button>`).join('')}</div>
       <div class="lkc-side orb-center">${t.items.map(info).join('')}${navBtns}</div>
     </div>`;
-  } else if (id === 'fitness') {
+  } else if (d.list === 'pan') {
     catalog = `<div class="pan">${t.items.map((it, n) => `<article class="pan-it${n ? '' : ' on'}" data-pan>
         ${pic(d.img[2 + n], 800, '(max-width: 860px) 100vw, 40vw', it.n, 'loading="lazy"')}
         <span class="d-tag">${it.tag}</span>
         <div class="pan-in"><h3>${it.n}</h3><div class="pan-more"><div><p>${it.d}</p>${foot(it)}</div></div></div>
       </article>`).join('')}</div>`;
-  } else if (id === 'realty') {
+  } else if (d.list === 'hl') {
     catalog = `<div class="hl" data-hl>
       <div class="hl-list">${t.items.map((it, n) => `<article class="hl-row${n ? '' : ' on'}" data-hl-i="${n}">
         <span class="hl-n">${pad2(n + 1)}</span>
@@ -139,8 +141,8 @@ export function demoHTML(id, L, { words, btn, TG }) {
       </article>`).join('')}</div>`;
   }
 
-  const pulse = id === 'fitness' ? `<div class="d-pulse" data-live aria-hidden="true"><svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path pathLength="1" d="${PULSE}"/><path class="d-pulse-dot" pathLength="1" d="${PULSE}"/></svg></div>` : '';
-  const beforeAfter = id === 'dental' ? `<section class="d-ba-sec">
+  const pulse = d.pulse ? `<div class="d-pulse" data-live aria-hidden="true"><svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path pathLength="1" d="${PULSE}"/><path class="d-pulse-dot" pathLength="1" d="${PULSE}"/></svg></div>` : '';
+  const beforeAfter = d.ba ? `<section class="d-ba-sec">
       <div class="d-ba-copy"><h2 class="rvw">${words(t.items[3].n)}</h2><p class="rv">${t.items[3].d}</p><span class="d-ba-hint rv">${ICO.sides}${t.items[3].tag}</span></div>
       <div class="d-ba" data-ba data-live>
         ${pic(d.img[5], 800, '(max-width: 860px) 100vw, 50vw', t.items[3].n, 'loading="lazy"')}
@@ -150,7 +152,7 @@ export function demoHTML(id, L, { words, btn, TG }) {
     </section>` : '';
 
   return `
-<div class="d d-${id} d-h-${d.hero}" data-b="${id}">
+<div class="d d-${id} d-h-${d.hero}" data-b="${id}"${own ? ` style="--nl:${nameLen || 8}"` : ''}>
   <header class="d-nav">
     <a class="d-logo lk" href="#/${id}" data-to="d-top">${lock}</a>
     <nav>
@@ -164,7 +166,7 @@ export function demoHTML(id, L, { words, btn, TG }) {
     </div>
   </header>
 
-  ${heroSection || `<section class="d-hero" id="d-top" data-live${d.hero === 'float' ? ' data-par data-sp="top"' : id === 'dental' ? ' data-par' : ''}>${hero}</section>`}
+  ${heroSection || `<section class="d-hero" id="d-top" data-live${d.hero === 'float' ? ' data-par data-sp="top"' : d.glass ? ' data-par' : ''}>${hero}</section>`}
 
   <div class="d-ticker" data-live aria-hidden="true"><div>${[0, 1].map(() => tick.map((w) => `<span>${w}</span>`).join('')).join('')}</div></div>
   ${pulse}
@@ -187,7 +189,7 @@ export function demoHTML(id, L, { words, btn, TG }) {
   <section class="d-gallery">
     <p class="d-quote" data-sp style="--n:${t.strip.split(' ').length}">${words(t.strip)}</p>
     <div class="d-mosaic">
-      ${[6, 7, 8].map((n, i) => `<figure class="g${i + 1} rvi" style="--i:${i}">${pic(d.img[n], i ? 1000 : 1400, '(max-width: 860px) 100vw, 55vw', d.name, `loading="lazy"${i ? '' : ' data-px=".05"'}`)}</figure>`).join('')}
+      ${[6, 7, 8].map((n, i) => `<figure class="g${i + 1} rvi" style="--i:${i}">${pic(d.img[n], i ? 1000 : 1400, '(max-width: 860px) 100vw, 55vw', name, `loading="lazy"${i ? '' : ' data-px=".05"'}`)}</figure>`).join('')}
     </div>
   </section>
 
@@ -210,12 +212,12 @@ export function demoHTML(id, L, { words, btn, TG }) {
       <a href="#/${id}" data-to="d-about">${t.nav[1]}</a>
       <a href="#/${id}" data-to="d-book">${t.nav[2]}</a>
     </nav>
-    <p>© ${new Date().getFullYear()} ${d.name}. ${type}.</p>
+    <p>© ${new Date().getFullYear()} ${name}. ${type}.</p>
   </footer>
 
   <section class="d-end rv" id="d-end">
     <span class="logo">SPECTRE</span>
-    <h2>${k.endTitle.replace('{name}', d.name)}</h2>
+    <h2>${(own ? k.endTitleOwn : k.endTitle).replace('{name}', name)}</h2>
     <p>${k.endSub}</p>
     <div class="actions">
       ${btn(k.endCta, TG)}

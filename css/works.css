@@ -4,6 +4,10 @@
 [data-b="dental"] { --bg: #f4f9fc; --ink: #0b2a4a; --acc: #00a3a3; --oa: #ffffff; --mc: #00a3a3; --m2: #0b2a4a; --f: 'Geologica', var(--fb); --k: 1.04; --fw: 300; --ls: -.03em; }
 [data-b="shop"] { --bg: #ecebe7; --ink: #0c0c0c; --acc: #ff5b00; --oa: #ffffff; --mc: #0c0c0c; --m2: #ff5b00; --f: 'Sofia Sans Extra Condensed', 'Unbounded', sans-serif; --k: 1.5; --fw: 800; --ls: .01em; --tt: uppercase; }
 [data-b="fitness"] { --bg: #f2330d; --ink: #0a0a0a; --acc: #ffffff; --oa: #0a0a0a; --mc: #0a0a0a; --m2: #ffffff; --f: 'Oswald', 'Unbounded', sans-serif; --k: 1.14; --fw: 700; --fi: italic; --tt: uppercase; }
+[data-b="beauty"] { --bg: #f6efe9; --ink: #2b1a24; --acc: #b4477a; --oa: #ffffff; --mc: #b4477a; --m2: #2b1a24; --f: 'Playfair Display', Georgia, serif; --k: 1.12; --fw: 500; --fi: italic; }
+[data-b="auto"] { --bg: #101317; --ink: #eef1f4; --acc: #ffd60a; --oa: #101317; --mc: #ffd60a; --m2: #eef1f4; --f: 'Exo 2', 'Unbounded', sans-serif; --k: 1.04; --fw: 800; --fi: italic; --tt: uppercase; }
+[data-b="school"] { --bg: #f3f1ff; --ink: #17123a; --acc: #6b3df5; --oa: #ffffff; --mc: #6b3df5; --m2: #17123a; --f: 'Rubik', var(--fb); --k: 1; --fw: 600; --ls: -.03em; }
+[data-b="hotel"] { --bg: #f1ece2; --ink: #12303a; --acc: #0f6a73; --oa: #f1ece2; --mc: #0f6a73; --m2: #d39a52; --f: 'Prata', Georgia, serif; --k: 1.06; --fw: 400; }
 [data-b="realty"] { --bg: #dde2df; --ink: #14201b; --acc: #1f5a44; --oa: #eef3ef; --mc: #1f5a44; --m2: #14201b; --f: 'Forum', Georgia, serif; --k: 1.24; --fw: 400; --ls: .01em; }
 
 .mk { display: block; width: 1em; height: 1em; color: var(--mc, currentColor); flex-shrink: 0; }

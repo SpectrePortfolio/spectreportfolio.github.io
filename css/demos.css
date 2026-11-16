@@ -165,7 +165,10 @@
 
 /* ---------- подвал ---------- */
 .d-foot { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 22px 40px; padding: clamp(40px, 6vw, 80px) var(--pad) clamp(28px, 4vw, 48px); }
-.d-foot-logo { grid-column: 1 / -1; font-size: calc(clamp(2.6rem, 9vw, 9rem) * var(--k, 1) * .8); }
+/* --nl — длина своего названия из «примерки» (ставит js/demo.js): длинное название в подвале уменьшается, чтобы помещаться в строку */
+.d-foot-logo { grid-column: 1 / -1; font-size: calc(clamp(2.6rem, 9vw, 9rem) * var(--k, 1) * .8 * min(1, 9 / var(--nl, 8))); max-width: 100%; }
+.d-logo { min-width: 0; }
+.d-logo .wm { max-width: min(34vw, 13em); overflow: hidden; text-overflow: ellipsis; padding-block: .14em; margin-block: -.14em; }
 .d-foot nav { display: flex; flex-wrap: wrap; gap: 8px 24px; font-weight: 500; }
 .d-foot nav a:hover { color: var(--acc2, var(--acc)); }
 .d-foot p { font-size: 14px; color: var(--soft); }
@@ -266,6 +269,53 @@
 .d-realty .d-ticker { background: var(--acc); color: #e9efe9; border: 0; }
 .d-realty .d-ticker span::after { background: #e9efe9; }
 .d-realty .d-book { --acc: #4fd1a0; --on-acc: #14201b; }
+
+/* ---------- Lila: салон красоты ---------- */
+.d-beauty { --r: 22px; --hr: 999px 999px 26px 26px; --dfb: 'Jost', var(--fb); --f3: var(--f); --on-acc: #fff; --card: #fff; --ia: 3 / 4; }
+.d-beauty .d-hero h1, .d-beauty h2:not(.d-end h2), .d-beauty .d-quote { line-height: 1.04; }
+.d-beauty .d-ticker { background: var(--acc); color: #fff; border: 0; }
+.d-beauty .d-ticker span::after { background: #fff; }
+.d-beauty .d-about-media { border-radius: 999px 999px 26px 26px; }
+.d-beauty .d-quote { color: var(--acc); }
+.d-beauty .lkc-info .d-price, .d-beauty .d-price { font-family: var(--f); font-style: italic; font-weight: 500; color: var(--acc); }
+.d-beauty .d-book { --acc: #ff9ec4; --on-acc: #2b1a24; }
+
+/* ---------- TORQ: автосервис ---------- */
+.d-auto { --r: 4px; --rb: 4px; --hr: 4px; --f3: var(--f); --on-acc: #101317; --card: #171b21; --btn-h: #fff; --btn-hc: #101317; }
+.d-auto .d-hero h1, .d-auto h2:not(.d-end h2), .d-auto .d-quote { line-height: .98; }
+.d-auto .d-hero-media::after { background: linear-gradient(180deg, rgba(8, 10, 12, .72) 0%, rgba(8, 10, 12, .2) 30%, rgba(8, 10, 12, .45) 60%, #101317 100%); }
+.d-auto .d-ticker { background: var(--acc); color: #101317; border: 0; }
+.d-auto .d-ticker span::after { background: #101317; }
+.d-auto .pan-it { --acc: #ffd60a; --on-acc: #101317; background: #171b21; }
+.d-auto .pan-it img { filter: saturate(.2) brightness(.74); }
+.d-auto .pan-it.on img { filter: none; }
+.d-auto .pan-in h3 { font-size: clamp(1.3rem, 2.1vw, 2.2rem); }
+.d-auto .d-tag { left: 0; top: 0; padding: 8px 14px; border-radius: 0; background: var(--acc); color: #101317; font-family: var(--f); font-style: italic; font-size: 1.15rem; line-height: 1; }
+.d-auto .d-quote { color: var(--acc); }
+.d-auto .d-book { --bg: #ffd60a; --acc: #101317; --on-acc: #ffd60a; --btn-h: #fff; --btn-hc: #101317; }
+.d-auto .d-foot-logo { font-style: italic; }
+
+/* ---------- Nova: онлайн-школа ---------- */
+.d-school { --r: 24px; --hr: 36px; --dfb: 'Rubik', var(--fb); --on-acc: #fff; --card: #fff; --ia: 4 / 3; }
+.d-school .d-hero h1, .d-school h2:not(.d-end h2), .d-school .d-quote { line-height: 1; }
+.d-school .d-item { box-shadow: 0 1px 0 rgba(23, 18, 58, .05), 0 24px 50px -30px rgba(23, 18, 58, .4); }
+.d-school .d-item:hover { box-shadow: 0 1px 0 rgba(23, 18, 58, .05), 0 34px 60px -28px rgba(107, 61, 245, .6); }
+.d-school .d-item-media { margin: 10px 10px 0; border-radius: 16px; }
+.d-school .d-tag { background: #c8f25a; color: #17123a; }
+.d-school .d-price { color: var(--acc); }
+.d-school .d-ticker { background: #17123a; color: #fff; border: 0; }
+.d-school .d-ticker span::after { background: #c8f25a; }
+.d-school .d-quote { max-width: 22ch; }
+.d-school .d-book { --acc: #c8f25a; --on-acc: #17123a; }
+
+/* ---------- Marea: отель ---------- */
+.d-hotel { --r: 6px; --rb: 6px; --hr: 6px; --dfb: 'Jost', var(--fb); --f3: var(--f); --on-acc: #f1ece2; --card: #e8e1d3; }
+.d-hotel .d-hero-media::after { background: linear-gradient(90deg, rgba(6, 20, 26, .62) 0%, rgba(6, 20, 26, .3) 38%, transparent 62%), linear-gradient(180deg, rgba(6, 20, 26, .58) 0%, rgba(6, 20, 26, .06) 30%, rgba(6, 20, 26, .22) 55%, rgba(6, 20, 26, .84) 100%); }
+.d-hotel .d-hero, .d-hotel .d-nav { --acc: #e3c08c; --on-acc: #12303a; --btn-h: #fff; --btn-hc: #12303a; }
+.d-hotel .d-ticker { background: var(--acc); color: #f1ece2; border: 0; }
+.d-hotel .d-ticker span::after { background: #d9b98a; }
+.d-hotel .d-quote { color: var(--acc); }
+.d-hotel .d-book { --acc: #d9b98a; --on-acc: #12303a; }
 
 /* ---------- карусель с глубиной: образы магазина, тарелки ресторана ---------- */
 .lkc { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 70px); align-items: center; }

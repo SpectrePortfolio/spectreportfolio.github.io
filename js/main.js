@@ -1,5 +1,5 @@
 import { createSpectre } from './spectre.js';
-import { DEMOS, ORDER, loadFonts, loadAllFonts, warmHero } from './demos.js';
+import { DEMOS, ORDER, CASES, loadFonts, loadAllFonts, warmHero } from './demos.js';
 import { demoHTML, demoNeighbours } from './demo.js';
 import { initRail } from './rail.js';
 import { WORKS, SERVICE_INDEX, worksGrid } from './works.js';
@@ -39,6 +39,13 @@ if (!spectre || spectre.mode !== 'webgl') goLite();
 
 let L = null, lang = 'ru', current = null, busy = false, lastPt = null, preview = null, homeY = 0, intro = false;
 const glCanvas = $('#gl');
+
+// ---------- примерка названия ----------
+// Посетитель вводит название своего бизнеса на главной — оно подставляется в строки концептов и во все демо-сайты.
+let own = '';
+try { own = (localStorage.getItem('spectre-name') || '').slice(0, 24); } catch {}
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ownName = () => own.trim();
 
 // ---------- графика ----------
 const ARROW = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>';
@@ -85,7 +92,7 @@ async function setLang(next) {
 }
 function setTitle() {
   if (isWork(current)) document.title = `${L.services.items[SERVICE_INDEX[current.slice(2)]].t} — SPECTRE`;
-  else if (current) document.title = `${DEMOS[current].name} — ${L.concepts.items[current].type} · SPECTRE`;
+  else if (current) document.title = `${ownName() || DEMOS[current].name} — ${L.concepts.items[current].type} · SPECTRE`;
   else document.title = L.meta.title;
   $('meta[name=description]').content = L.meta.desc;
 }
@@ -123,13 +130,18 @@ function renderMain() {
       <h2 class="rvw">${words(t.concepts.title)}</h2>
       <p>${touch ? t.concepts.subTouch : t.concepts.sub}</p>
     </div>
+    <div class="nm rv${ownName() ? ' has' : ''}">
+      <label class="nm-l" for="nm-in">${t.name.label}</label>
+      <span class="nm-f"><input id="nm-in" type="text" maxlength="24" value="${esc(own)}" placeholder="${t.name.ph}" data-name autocomplete="off" spellcheck="false" enterkeyhint="done"><button type="button" data-name-x aria-label="${t.name.clear}">${CROSS}</button></span>
+      <span class="nm-h">${t.name.hint}</span>
+    </div>
     <ul class="c-list">
       ${ORDER.map((id, i) => `<li class="rv" style="--i:${i}"><a class="c-row" href="#/${id}" data-id="${id}" data-b="${id}" style="--c:${DEMOS[id].glow[0]}">
         <span class="c-main">
           <span class="c-type">${t.concepts.items[id].type}</span>
           <span class="c-style">${t.concepts.items[id].style}</span>
         </span>
-        <span class="c-side"><span class="c-brand">${DEMOS[id].name}</span><span class="c-sw"><i></i><i></i><i></i></span></span>
+        <span class="c-side"><span class="c-brand">${ownName() ? esc(ownName()) : DEMOS[id].name}</span><span class="c-sw"><i></i><i></i><i></i></span></span>
         <span class="c-go">${ARROW}</span>
       </a></li>`).join('')}
     </ul>
@@ -147,7 +159,7 @@ function renderMain() {
         <span class="s-go">${ARROW}</span>
         <h3>${s.t}</h3><p>${s.d}</p>
         <ul class="s-tags">${s.tags.map((g) => `<li>${g}</li>`).join('')}</ul>
-        <span class="s-more"><span>${i === 0 ? t.works.sites : t.works.open}</span><em>${pad2(ORDER.length)}</em></span>
+        <span class="s-more"><span>${i === 0 ? t.works.sites : t.works.open}</span><em>${pad2(i === 0 ? ORDER.length : CASES.length)}</em></span>
       </a>`).join('')}
     </div>
   </section>
@@ -157,6 +169,28 @@ function renderMain() {
     <ol class="steps">
       ${t.team.steps.map((s, i) => `<li class="rv" style="--i:${i}"><h3>${s.t}</h3><p>${s.d}</p></li>`).join('')}
     </ol>
+  </section>
+
+  <section class="brief" id="brief">
+    <div class="sec-head"><h2 class="rvw">${words(t.brief.title)}</h2><p>${t.brief.sub}</p></div>
+    <div class="bf rv">
+      <div class="bf-q">
+        <div class="bf-step"><h3><b>01</b>${t.brief.q[0]}<em>${t.brief.multi}</em></h3>
+          <div class="bf-chips" data-bf="what">${t.services.items.map((s, i) => `<button class="bf-chip" type="button" data-v="${i}" aria-pressed="false">${s.t}</button>`).join('')}<button class="bf-chip" type="button" data-v="x" aria-pressed="false">${t.brief.unsure}</button></div></div>
+        <div class="bf-step"><h3><b>02</b>${t.brief.q[1]}</h3>
+          <div class="bf-chips" data-bf="biz">${ORDER.map((id) => `<button class="bf-chip" type="button" data-v="${id}" aria-pressed="false">${t.concepts.items[id].type}</button>`).join('')}<button class="bf-chip" type="button" data-v="x" aria-pressed="false">${t.brief.other}</button></div></div>
+        <div class="bf-step"><h3><b>03</b>${t.brief.q[2]}</h3>
+          <div class="bf-chips" data-bf="when">${t.brief.when.map((w, i) => `<button class="bf-chip" type="button" data-v="${i}" aria-pressed="false">${w}</button>`).join('')}</div></div>
+      </div>
+      <div class="bf-out">
+        <div class="bf-chat">
+          <div class="bf-top"><span class="bf-av">S</span><div><b>SPECTRE</b><span>Telegram</span></div>${TG_ICON}</div>
+          <p class="bf-msg is-empty" data-bf-msg></p>
+        </div>
+        <a class="btn bf-send" href="${TG}" target="_blank" rel="noopener" data-bf-send><span>${t.brief.send}</span><i class="btn-ico">${ARROW}</i></a>
+        <p class="bf-note">${t.brief.note}</p>
+      </div>
+    </div>
   </section>
 
   <section class="reviews" id="reviews">
@@ -178,7 +212,49 @@ function renderMain() {
 </main>
 <footer class="foot"><span class="logo">SPECTRE © ${new Date().getFullYear()}</span><span>${t.foot}</span></footer>`;
   bindConcepts();
+  updateBrief();
   watch(site);
+}
+
+function saveName() { try { if (ownName()) localStorage.setItem('spectre-name', ownName()); else localStorage.removeItem('spectre-name'); } catch {} }
+function applyName() {
+  const n = ownName();
+  site.querySelectorAll('.c-row').forEach((r) => { $('.c-brand', r).textContent = n || DEMOS[r.dataset.id].name; });
+  $('.nm', site)?.classList.toggle('has', !!n);
+  updateBrief();
+}
+
+// ---------- заявка: три вопроса и готовое сообщение для Telegram ----------
+// Ответы хранятся кодами (номер услуги, id концепта, номер срока), поэтому переживают смену языка.
+const bf = { what: new Set(), biz: null, when: null };
+function briefText() {
+  const b = L.brief, parts = [];
+  if (bf.what.size) parts.push(b.what.replace('{v}', [...bf.what].map((v) => (v === 'x' ? b.unsure : L.services.items[+v].t)).join(', ')));
+  if (bf.biz) parts.push(b.biz.replace('{v}', bf.biz === 'x' ? b.other : L.concepts.items[bf.biz].type));
+  if (ownName()) parts.push(b.name.replace('{v}', ownName()));
+  if (bf.when !== null) parts.push(b.time.replace('{v}', b.when[bf.when]));
+  return bf.what.size || bf.biz || bf.when !== null ? `${b.hello} ${parts.join(' ')}` : '';
+}
+function updateBrief() {
+  const box = $('.bf', site);
+  if (!box) return;
+  box.querySelectorAll('.bf-chip').forEach((c) => {
+    const g = c.parentElement.dataset.bf, v = c.dataset.v;
+    c.setAttribute('aria-pressed', g === 'what' ? bf.what.has(v) : String(bf[g]) === v);
+  });
+  const text = briefText(), msg = $('[data-bf-msg]', box);
+  msg.textContent = text || L.brief.empty;
+  msg.classList.toggle('is-empty', !text);
+  $('[data-bf-send]', box).href = text ? `${TG}?text=${encodeURIComponent(text)}` : TG;
+}
+function pickBrief(c) {
+  const g = c.parentElement.dataset.bf, v = c.dataset.v;
+  if (g === 'what') {
+    if (bf.what.has(v)) bf.what.delete(v);
+    else { if (v === 'x') bf.what.clear(); else bf.what.delete('x'); bf.what.add(v); }
+  } else if (g === 'when') bf.when = String(bf.when) === v ? null : +v;
+  else bf.biz = bf.biz === v ? null : v;
+  updateBrief();
 }
 
 function showPreview(id) {
@@ -219,7 +295,7 @@ function dock(home, prev, label, next, cta) {
 
 function renderDemo(id) {
   const [prev, next] = demoNeighbours(id);
-  page.innerHTML = demoHTML(id, L, { words, btn, TG })
+  page.innerHTML = demoHTML(id, L, { words, btn, TG, name: ownName() ? esc(ownName()) : '', nameLen: [...ownName()].length })
     + dock(L.dock.back, `#/${prev}`, L.concepts.items[id].type, `#/${next}`, L.dock.want);
 }
 function renderWork(id) {
@@ -601,6 +677,16 @@ addEventListener('resize', onScroll, { passive: true });
 document.addEventListener('click', (e) => {
   const lb = e.target.closest('[data-lang]');
   if (lb) { setLang(lb.dataset.lang); return; }
+  // примерка названия и заявка на главной
+  if (e.target.closest('[data-name-x]')) {
+    own = '';
+    const inp = $('[data-name]', site);
+    if (inp) { inp.value = ''; inp.focus(); }
+    saveName(); applyName();
+    return;
+  }
+  const bc = e.target.closest('.bf-chip');
+  if (bc) { pickBrief(bc); return; }
   // «живые» кнопки демо-сайтов: корзина, выбор времени, отправка формы
   const add = e.target.closest('[data-add]');
   if (add) {
@@ -635,7 +721,15 @@ document.addEventListener('click', (e) => {
   if (a) lastPt = [e.clientX || innerWidth / 2, e.clientY || innerHeight / 2];
 });
 addEventListener('hashchange', () => go(routeKey()));
-document.addEventListener('selectstart', (e) => e.preventDefault());
+// выделение текста отключено везде, кроме полей ввода
+document.addEventListener('selectstart', (e) => { const el = e.target.nodeType === 1 ? e.target : e.target.parentElement; if (!el || !el.closest('input, textarea')) e.preventDefault(); });
+document.addEventListener('input', (e) => {
+  const inp = e.target.closest?.('[data-name]');
+  if (!inp) return;
+  own = inp.value.replace(/\s+/g, ' ').slice(0, 24);
+  saveName(); applyName();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.closest?.('[data-name]')) e.target.blur(); });
 document.addEventListener('dragstart', (e) => e.preventDefault());
 
 // наклон карточек, подсветка и «магнитные» кнопки — один обработчик на документ

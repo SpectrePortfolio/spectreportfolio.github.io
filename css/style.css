@@ -330,3 +330,51 @@ main > section.end, .w .end {
   .rv:not(.in) { opacity: 1; transform: none; filter: none; }
   .wd > span { transform: none; }
 }
+
+/* ---------- примерка названия: поле над списком концептов ---------- */
+.nm { display: grid; gap: 10px; max-width: min(56%, 880px); margin-bottom: 26px; }
+.nm-l { font-family: var(--fd); font-weight: 600; font-size: 14px; color: var(--ice); }
+.nm-f { position: relative; display: flex; align-items: center; }
+.nm-f input {
+  width: 100%; height: 64px; padding: 0 62px 0 24px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(255, 255, 255, .05); color: #fff; font: inherit; font-size: 1.15rem; outline: none;
+  user-select: text; -webkit-user-select: text; transition: border-color .25s, background .25s, box-shadow .25s;
+}
+.nm-f input::placeholder { color: rgba(255, 255, 255, .38); }
+.nm-f input:focus { border-color: var(--blue); background: rgba(36, 71, 255, .1); box-shadow: 0 0 0 4px rgba(36, 71, 255, .18); }
+.nm.has .nm-f input { border-color: rgba(157, 176, 255, .5); }
+.nm-f button { position: absolute; right: 12px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--mute); opacity: 0; pointer-events: none; transition: opacity .2s, background .2s, color .2s; }
+.nm.has .nm-f button { opacity: 1; pointer-events: auto; }
+.nm-f button:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.nm-h { font-size: 14px; color: var(--mute); }
+.c-brand { max-width: 15em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-block: .12em; }
+
+/* ---------- заявка: три вопроса и готовое сообщение ---------- */
+.bf { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: clamp(20px, 3vw, 48px); align-items: start; }
+.bf-q { display: grid; gap: 14px; }
+.bf-step { padding: 24px 26px 26px; border-radius: 26px; border: 1px solid rgba(157, 176, 255, .16); background: linear-gradient(150deg, #0e1230, #06070f 70%); }
+.bf-step h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 18px; font-family: var(--fd); font-weight: 600; font-size: 1.12rem; }
+.bf-step h3 b { font-size: 13px; font-weight: 800; color: #7f97ff; }
+.bf-step h3 em { font-family: var(--fb); font-style: normal; font-weight: 400; font-size: 13px; color: var(--mute); }
+.bf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.bf-chip { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .04); color: #fff; font-size: 15px; transition: background .2s, border-color .2s, box-shadow .2s, transform .2s var(--ease); }
+.bf-chip:hover { border-color: rgba(157, 176, 255, .7); }
+.bf-chip:active { transform: scale(.95); }
+.bf-chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); box-shadow: 0 8px 26px -10px var(--blue); }
+.bf-out { position: sticky; top: 96px; display: grid; gap: 16px; }
+.bf-chat { min-height: 250px; border-radius: 26px; border: 1px solid rgba(157, 176, 255, .16); background: #0a0c1c; overflow: hidden; }
+.bf-top { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.bf-top div { display: flex; flex-direction: column; line-height: 1.25; }
+.bf-top b { font-family: var(--fd); font-weight: 800; font-size: 13px; letter-spacing: .12em; }
+.bf-top div span { font-size: 13px; color: var(--mute); }
+.bf-top .r-tg { margin-left: auto; }
+.bf-av { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--blue); font-family: var(--fd); font-weight: 800; }
+.bf-msg { width: fit-content; max-width: 88%; margin: 22px 20px 22px auto; padding: 14px 18px; border-radius: 20px 20px 6px 20px; background: var(--blue); font-size: 1.02rem; line-height: 1.45; overflow-wrap: anywhere; }
+.bf-msg.is-empty { margin: 22px auto 22px 20px; border-radius: 20px 20px 20px 6px; background: rgba(255, 255, 255, .06); color: var(--mute); }
+.bf-send { width: 100%; }
+.bf-note { font-size: 13px; color: var(--mute); }
+@media (max-width: 860px) {
+  .nm { max-width: none; }
+  .bf { grid-template-columns: 1fr; }
+  .bf-out { position: static; }
+}

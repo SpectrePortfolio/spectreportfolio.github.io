@@ -120,6 +120,38 @@ const DRAW = {
     poly([36, 92, 122, 137, 122, 232, 36, 186]);
     poly([134, 137, 220, 92, 220, 186, 134, 232]);
   },
+  beauty(x) { // цветок лотоса
+    for (const a of [-1.15, -0.58, 0, 0.58, 1.15]) {
+      x.save(); x.translate(128, 196); x.rotate(a);
+      x.beginPath(); x.ellipse(0, -80, 25, 84, 0, 0, 7); x.fill();
+      x.restore();
+    }
+    rr(x, 62, 212, 132, 12, 6);
+  },
+  auto(x) { // автомобиль в профиль
+    x.beginPath(); x.moveTo(20, 168); x.lineTo(20, 142); x.quadraticCurveTo(22, 124, 46, 120); x.lineTo(80, 114);
+    x.quadraticCurveTo(100, 78, 136, 76); x.lineTo(170, 76); x.quadraticCurveTo(198, 80, 214, 116);
+    x.quadraticCurveTo(238, 122, 238, 146); x.lineTo(238, 168); x.closePath(); x.fill();
+    x.globalCompositeOperation = 'destination-out';
+    x.beginPath(); x.arc(74, 170, 29, 0, 7); x.fill(); x.beginPath(); x.arc(188, 170, 29, 0, 7); x.fill();
+    x.beginPath(); x.moveTo(104, 112); x.quadraticCurveTo(116, 90, 138, 88); x.lineTo(138, 112); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(148, 88); x.lineTo(168, 88); x.quadraticCurveTo(188, 92, 198, 112); x.lineTo(148, 112); x.closePath(); x.fill();
+    x.globalCompositeOperation = 'source-over';
+    x.beginPath(); x.arc(74, 170, 21, 0, 7); x.fill(); x.beginPath(); x.arc(188, 170, 21, 0, 7); x.fill();
+  },
+  school(x) { // академическая шапочка
+    x.beginPath(); x.moveTo(128, 58); x.lineTo(238, 108); x.lineTo(128, 158); x.lineTo(18, 108); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(64, 142); x.lineTo(64, 184); x.quadraticCurveTo(128, 226, 192, 184); x.lineTo(192, 142); x.lineTo(128, 172); x.closePath(); x.fill();
+    x.lineWidth = 7; x.beginPath(); x.moveTo(224, 114); x.lineTo(224, 178); x.stroke();
+    x.beginPath(); x.arc(224, 190, 11, 0, 7); x.fill();
+  },
+  hotel(x) { // солнце над морем
+    x.beginPath(); x.arc(128, 134, 60, Math.PI, Math.PI * 2); x.closePath(); x.fill();
+    x.lineWidth = 9;
+    for (const a of [-1.25, -0.63, 0, 0.63, 1.25]) { x.beginPath(); x.moveTo(128 + Math.sin(a) * 78, 134 - Math.cos(a) * 78); x.lineTo(128 + Math.sin(a) * 106, 134 - Math.cos(a) * 106); x.stroke(); }
+    x.lineWidth = 12;
+    for (const y of [160, 190, 220]) { x.beginPath(); x.moveTo(34, y); x.bezierCurveTo(66, y - 18, 96, y + 18, 128, y); x.bezierCurveTo(160, y - 18, 190, y + 18, 222, y); x.stroke(); }
+  },
   realty(x) {
     x.beginPath(); x.moveTo(128, 36); x.lineTo(222, 114); x.lineTo(198, 114); x.lineTo(198, 220);
     x.lineTo(58, 220); x.lineTo(58, 114); x.lineTo(34, 114); x.closePath(); x.fill();

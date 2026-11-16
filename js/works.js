@@ -1,7 +1,7 @@
 // Портфолио по направлениям: айдентика, интерфейсы, моушн, соцсети, печать.
 // Каждый кейс — живая сцена для одного из шести вымышленных брендов: настоящие фото, тексты бренда, зацикленная анимация.
 // Все размеры внутри сцены заданы в em от ширины сцены, поэтому кейс одинаково выглядит на любом экране.
-import { DEMOS, ORDER, photo } from './demos.js';
+import { DEMOS, CASES, photo } from './demos.js';
 
 export const WORKS = ['identity', 'ui', 'motion', 'social', 'print'];
 export const SERVICE_INDEX = { identity: 1, ui: 2, motion: 3, social: 4, print: 5 };
@@ -14,6 +14,10 @@ const MARKS = {
   shop: '<rect x="9" y="7" width="10" height="34"/><rect x="22" y="7" width="18" height="10"/><circle cx="28" cy="27" r="6" fill="var(--m2)"/>',
   fitness: '<path d="M15 7h11L15 41H4z"/><path d="M30 7h9L28 41h-9z" opacity=".65"/><path d="M43 7h4L36 41h-4z" fill="var(--m2)"/>',
   realty: '<path fill-rule="evenodd" d="M8 40V22a16 16 0 0 1 32 0v18zM17 40V23a7 7 0 0 1 14 0v17z"/><rect x="5" y="41.5" width="38" height="3" rx="1.5" fill="var(--m2)"/>',
+  beauty: '<path d="M24 5c9 8 11 21 0 38C13 26 15 13 24 5z"/><path d="M7 21c9-1 15 5 16 21C12 38 6 31 7 21z" opacity=".55"/><circle cx="37" cy="14" r="3.6" fill="var(--m2)"/>',
+  auto: '<path fill-rule="evenodd" d="M24 5a19 19 0 1 0 0 38 19 19 0 0 0 0-38zm0 8a11 11 0 1 1 0 22 11 11 0 0 1 0-22z"/><path d="M21.500 26.500 38 9l-9.500 20z" fill="var(--m2)"/>',
+  school: '<path d="M22 4c1.700 12 5.400 15.700 17 18-11.600 2.300-15.300 6-17 18-1.700-12-5.400-15.700-17-18 11.600-2.300 15.300-6 17-18z"/><circle cx="39" cy="38" r="4.500" fill="var(--m2)"/>',
+  hotel: '<path d="M9 26a15 15 0 0 1 30 0z"/><path d="M4 33c5-3.500 9 3.500 14 0s9-3.500 14 0 8 3 12 0v5c-4 3-8 3-12 0s-9-3.500-14 0-9 3.500-14 0z" fill="var(--m2)"/>',
 };
 
 export const mark = (id) => `<svg class="mk" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true">${MARKS[id]}</svg>`;
@@ -165,7 +169,7 @@ function print(id, t, m, type) {
 const BUILD = { identity, ui, motion, social, print };
 
 export function worksGrid(work, L) {
-  return ORDER.map((id, i) => {
+  return CASES.map((id, i) => {
     const type = L.concepts.items[id].type;
     return `<article class="cs rv" data-b="${id}">
       <header class="cs-head"><span class="cs-n">${String(i + 1).padStart(2, '0')}</span><span class="lk cs-brand">${mark(id)}${wm(id)}</span><span class="cs-type">${type}</span></header>
