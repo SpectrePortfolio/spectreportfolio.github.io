@@ -373,3 +373,56 @@
 .r-line::before, .r-line::after { content: ''; position: absolute; top: 0; bottom: 0; width: 9%; z-index: 1; pointer-events: none; }
 .r-line::before { left: 0; background: linear-gradient(90deg, #000, transparent); }
 .r-line::after { right: 0; background: linear-gradient(270deg, #000, transparent); }
+
+/* ====================================================================================================
+   Прокрутка: анимации ведёт сам браузер (замеры 2026-11-17, Chrome, прокрутка колесом)
+   ==================================================================================================== */
+/* Появление фото. Раньше анимировался clip-path — это перерисовка картинки в каждом кадре. Теперь рамка съезжает сверху,
+   а фото внутри едет навстречу: на вид то же раскрытие сверху вниз, но двигает его видеокарта без перерисовки. */
+.rvi { clip-path: none; translate: 0 -100%; transition: translate 1.25s var(--ease); transition-delay: calc(var(--i, 0) * 110ms); }
+.rvi img { translate: 0 100%; transition: translate 1.25s var(--ease), scale 1.7s var(--ease); transition-delay: calc(var(--i, 0) * 110ms); }
+.rvi.in, .rvi.in img { clip-path: none; translate: 0 0; }
+.d-mosaic figure.rvi img { transition: translate 1.25s var(--ease), scale 1.6s var(--ease), transform 1.2s var(--ease); transition-delay: calc(var(--i, 0) * 110ms), calc(var(--i, 0) * 110ms), 0s; }
+@media (prefers-reduced-motion: reduce) { .rvi, .rvi img { translate: none; } }
+/* Фитнес: чёрно-белый фильтр на фото с параллаксом применялся заново в каждом кадре прокрутки (фото в отдельном слое).
+   Без параллакса фильтр считается один раз. */
+.d-fitness [data-px] { transform: none; will-change: auto; animation: none; }
+
+/* «Влёт» в дом: невидимые слои не рисуются вовсе (класс ставит js/main.js по ходу прокрутки). С will-change прозрачный
+   слой всё равно смешивался на весь экран в каждом кадре. */
+.zm.s1off .zm-s1, .zm.s2off .zm-s2, .zm.past .zm-copy1, .zm.c2off .zm-copy2, .zm.early .zm-hot, .zm.early .zm-card { visibility: hidden; }
+
+/* Chrome и Edge умеют привязывать анимацию к прокрутке без скрипта (animation-timeline). Там «влёт», параллакс фото и
+   проявление цитаты по словам идут синхронно с прокруткой на стороне видеокарты. В остальных браузерах работает прежний
+   расчёт через переменную --p (js/main.js). */
+@supports (animation-timeline: view()) {
+  .zm { view-timeline: --zm block; }
+  .zm-s1, .zm-s2, .zm-copy1, .zm-copy2, .zm-hot, .zm-price, .zm-list, .zm-bar i { animation-timeline: --zm; animation-fill-mode: both; animation-timing-function: linear; animation-duration: auto; }
+  .zm-s1 { animation-name: zm-zoom1, zm-out; animation-timeline: --zm, --zm; animation-range: contain 0% contain 42%, contain 30% contain 42%; animation-timing-function: cubic-bezier(.333, 0, .667, .333), linear; }
+  .zm-s2 { animation-name: zm-zoom2, zm-in; animation-timeline: --zm, --zm; animation-range: contain 25% contain 55%, contain 27% contain 40%; }
+  .zm-copy1 { animation-name: zm-copy1; animation-range: contain 0% contain 13%; }
+  .zm-copy2 { animation-name: zm-up44; animation-range: contain 50% contain 60%; }
+  .zm-hot { animation-name: zm-hot; animation-range: contain calc(58% + var(--i, 0) * 5%) contain calc(63% + var(--i, 0) * 5%); }
+  .zm-price { animation-name: zm-up50; animation-range: contain 72% contain 82%; }
+  .zm-list { animation-name: zm-up50; animation-range: contain 80% contain 90%; }
+  .zm-bar i { animation-name: zm-bar; animation-range: contain 0% contain 100%; }
+  @keyframes zm-zoom1 { from { transform: scale(1); } to { transform: scale(4.2); } }
+  @keyframes zm-zoom2 { from { transform: scale(1.5); } to { transform: scale(1); } }
+  @keyframes zm-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes zm-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes zm-copy1 { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-90px) scale(1.06); } }
+  @keyframes zm-up44 { from { opacity: 0; transform: translateY(44px); } to { opacity: 1; transform: none; } }
+  @keyframes zm-hot { from { opacity: 0; transform: translateY(16px) scale(.8); } to { opacity: 1; transform: none; } }
+  @keyframes zm-up50 { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: none; } }
+  @keyframes zm-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+  [data-px] { animation: px-shift linear both; animation-timeline: view(); animation-range: cover; }
+  .d-hero-media [data-px], .d-fitness [data-px] { animation: none; }
+  @keyframes px-shift { from { transform: translate3d(0, calc((50vh + 50%) * -.05), 0) scale(1.16); } to { transform: translate3d(0, calc((50vh + 50%) * .05), 0) scale(1.16); } }
+
+  .d-quote[data-sp] { view-timeline: --quote block; }
+  .d-quote[data-sp] .wd > span { opacity: 1; animation: q-word linear both; animation-timeline: --quote; animation-range: cover calc(20% + 30% * var(--i, 0) / (var(--n, 8) + 1)) cover calc(20% + 30% * (var(--i, 0) + 1) / (var(--n, 8) + 1)); }
+  @keyframes q-word { from { opacity: .14; } to { opacity: 1; } }
+}
+@media (prefers-reduced-motion: reduce) { [data-px] { animation: none; } }
+.lite [data-px] { animation: none; }

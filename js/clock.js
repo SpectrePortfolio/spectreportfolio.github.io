@@ -1,16 +1,21 @@
 // Общий «метроном» фоновых анимаций.
 //
 // Пока на странице хоть что-то движется, браузер собирает кадр с частотой экрана: 60, 120, 165 раз в секунду.
-// На встроенной видеокарте и большом экране это дорого (замеры 2026-11-17: Edge, Intel UHD, 2560×1440 @165 Гц):
+// На встроенной видеокарте и большом экране это дорого (замеры 2026-11-17: Edge и Chrome, Intel UHD, 2560×1440 @165 Гц):
 //   · одна зацикленная анимация на весь экран занимала ~70 % видеокарты;
 //   · две маленькие анимации в разных углах стоят как перерисовка всего экрана — браузер объединяет изменившиеся
-//     области в один прямоугольник (33 % против 8 % у одной);
+//     области в один прямоугольник (33–38 % против 8 % у одной);
 //   · те же две анимации, обновлённые в разных кадрах, — 10 %.
-// Поэтому на экранах от 120 Гц всё фоновое (частицы, дрейф рейла, зацикленные CSS-анимации) ведёт этот модуль:
-//   1) каждая анимация обновляется не в каждом кадре экрана, а в каждом N-м — около 55–70 раз в секунду;
-//   2) анимации на экране делятся на N групп по соседству, и группы обновляются по очереди, каждая в своём кадре.
+// Поэтому на экранах от 120 Гц всё фоновое обновляется не в каждом кадре экрана, а в каждом N-м (около 55–70 раз
+// в секунду), а движущиеся элементы делятся на N групп по соседству, и группы обновляются по очереди, каждая в своём кадре.
+//
+// Зацикленные CSS-анимации при этом остаются у браузера (их ведёт видеокарта, занятый главный поток им не мешает):
+// анимации назначается ступенчатая функция времени steps(n), и её значение меняется только n раз за цикл. Между
+// ступенями кадр не меняется, и браузер его не перерисовывает. Сдвиг группы — это сдвиг времени анимации на долю ступени.
+// Циклы на скрипте (частицы, дрейф рейла) подписываются через subscribe() и получают признак «свой кадр».
+//
 // Прокрутка, курсор, наведение и переходы страниц идут на полной частоте экрана.
-// На обычных 60–90 Гц делитель равен 1 и модуль ничего не меняет: CSS-анимации остаются на стороне браузера.
+// На обычных 60–90 Гц делитель равен 1 и модуль ничего не меняет.
 
 const subs = new Map();   // fn -> { el }: fn(now, tick) вызывается каждый кадр; tick — «кадр нулевой группы»
 const rateSubs = new Set();
@@ -33,17 +38,19 @@ function probeFrame(now) {
   probe = null;
   const ms = s[Math.floor(s.length * 0.2)];
   if (!(ms > 2 && ms < 40)) return;
+  const changed = Math.abs(ms - interval) > 0.15;
   interval = ms;
   base = Math.max(1, Math.round(1000 / ms / 66)); // 165 Гц → 3 (55 к/с), 144 → 2 (72), 120 → 2 (60), до 90 Гц → 1
-  applyDiv();
+  if (!applyDiv() && changed && div > 1) { applySteps(); regroup(); }
 }
 let base = 1, extra = 0, interval = 16.7;
 function applyDiv() {
   const next = base + extra;
-  if (next === div) return;
+  if (next === div) return false;
   div = next;
-  if (div < 2) release(); else regroup();
+  if (div < 2) release(); else { applySteps(); regroup(); }
   for (const fn of rateSubs) fn(div);
+  return true;
 }
 
 // ---------- страховка от перегрузки ----------
@@ -71,13 +78,14 @@ function watchLoad(now) {
 /** Не считать пропуски кадров ближайшие ms миллисекунд: идёт переход между страницами, это не перегрузка. */
 export function hush(ms) { lwSkip = Math.max(lwSkip, performance.now() + ms); lwHot = 0; }
 
+let needAlign = false;
 function loop(now) {
-  if (!subs.size && !(gov.size && div > 1) && !probe && now > watchUntil) { running = false; return; }
+  if (!subs.size && !probe && !needAlign && now > watchUntil) { running = false; return; }
   requestAnimationFrame(loop);
   if (probe) probeFrame(now);
   watchLoad(now);
   const phase = ++count % div;
-  if (gov.size && div > 1) stepCss(now, phase);
+  if (needAlign && phase === 0 && !probe) { needAlign = false; align(); }
   for (const fn of subs.keys()) fn(now, phase === 0);
 }
 function kick() { if (!running) { running = true; requestAnimationFrame(loop); } }
@@ -95,17 +103,14 @@ export function onRate(fn) { rateSubs.add(fn); }
 export const clockInfo = () => ({ div, css: gov.size, groups });
 
 // ---------- зацикленные CSS-анимации ----------
-// Браузер ведёт их сам на полной частоте экрана. Забираем управление: ставим на паузу и двигаем время вручную.
-const gov = new Map(); // Animation -> { el, box, t, last, phase, live, hold }
+const gov = new Map(); // Animation -> { el, box, dur, delay, n, phase }
 let groups = 0;
-// Паузу по наведению из CSS (animation-play-state) управляемая анимация не видит — повторяем её здесь:
-// [что останавливается, при каком состоянии предка].
-const HOLD = [['.r-run', '.r-wall:hover']];
 
 /**
- * Находит в root зацикленные CSS-анимации и берёт их под управление.
+ * Находит в root зацикленные CSS-анимации и назначает им ступенчатый ход.
  * Анимации вне блоков .mo / [data-live] привязываются к ближайшему разделу: он получает атрибут data-gov,
  * и вызывающий код должен переключать на нём класс .play так же, как на остальных (вернётся true, если такие появились).
+ * Класс .play нужен только для деления на группы: останавливает и запускает анимации по-прежнему CSS.
  */
 export function adopt(root) {
   if (div < 2 || !root || !root.getAnimations) return false;
@@ -114,50 +119,58 @@ export function adopt(root) {
   for (const a of list) {
     if (gov.has(a) || !a.animationName) continue; // у переходов animationName нет — их не трогаем
     const eff = a.effect, el = eff && eff.target;
-    if (!el || a.playState === 'idle') continue;
-    let loops = 0;
-    try { loops = eff.getComputedTiming().iterations; } catch {}
-    if (loops !== Infinity) continue;
+    if (!el || !eff.updateTiming) continue;
+    let t = null;
+    try { t = eff.getComputedTiming(); } catch {}
+    if (!t || t.iterations !== Infinity || !(t.duration > 0)) continue;
     let box = el.closest('.mo, [data-live], [data-gov]');
     if (!box) {
       box = el.closest('section, footer');
       if (box) { box.setAttribute('data-gov', ''); box.classList.add('play'); tagged = true; }
     }
-    const hold = HOLD.find(([sel]) => el.matches(sel));
-    gov.set(a, { el, box, t: +a.currentTime || 0, last: 0, phase: 0, live: false, hold: hold ? hold[1] : null });
-    try { a.pause(); } catch {}
+    gov.set(a, { el, box, dur: t.duration, delay: t.delay || 0, n: 0, phase: 0 });
   }
-  if (gov.size) kick();
+  applySteps();
   regroup();
   return tagged;
 }
 
-function stepCss(now, phase) {
-  let again = null;
-  // сначала все чтения: playState у CSS-анимации заставляет браузер досчитать стили
+/** Число ступеней на цикл: чтобы значение менялось раз в div кадров экрана. */
+function applySteps() {
+  const len = interval * div;
   for (const [a, g] of gov) {
-    if (g.phase !== phase) continue;
-    if (!g.el.isConnected) { gov.delete(a); continue; }
-    g.live = !g.box || g.box.classList.contains('play');
-    if (!g.live) continue;
-    const ps = a.playState;
-    if (ps === 'idle') { gov.delete(a); g.live = false; } // анимацию отменили (сменился класс, блок скрыт)
-    else if (ps !== 'paused') (again || (again = [])).push(a); // браузер снял паузу сам: блок вернулся на экран
-  }
-  if (again) for (const a of again) { try { a.pause(); const g = gov.get(a); g.t = +a.currentTime || g.t; } catch {} }
-  for (const [a, g] of gov) {
-    if (g.phase !== phase || !g.live) continue;
-    const dt = Math.min(100, now - (g.last || now)); g.last = now;
-    if (g.hold && g.el.closest(g.hold)) continue;
-    g.t += dt;
-    a.currentTime = g.t;
+    const n = Math.max(1, Math.round(g.dur / len));
+    if (n === g.n) continue;
+    try { a.effect.updateTiming({ easing: `steps(${n})` }); g.n = n; } catch { gov.delete(a); }
   }
 }
 
 function release() {
-  for (const [a, g] of gov) { if (g.el.isConnected && (!g.box || g.box.classList.contains('play'))) { try { a.play(); } catch {} } }
+  for (const a of gov.keys()) { try { a.effect.updateTiming({ easing: 'linear' }); } catch {} }
   gov.clear(); groups = 0;
 }
+
+/**
+ * Расставляет ступени по кадрам. Вызывается из кадра нулевой группы: анимация группы p должна сменить значение
+ * через p кадров после него. Ступень ставится за полкадра до нужного кадра, время анимации сдвигается на доли ступени
+ * (не больше ~18 мс — глазу незаметно). Длина ступени редко делится на период экрана точно, поэтому выравнивание
+ * повторяется раз в полторы секунды.
+ */
+function align() {
+  for (const [a, g] of gov) {
+    if (!g.el.isConnected) { gov.delete(a); continue; }
+    if (!g.n || (g.box && !g.box.classList.contains('play'))) continue;
+    const ct = a.currentTime;
+    if (typeof ct !== 'number') continue;
+    const sl = g.dur / g.n;
+    const wait = (((g.phase - 1 + div) % div) + 0.5) * interval; // сколько должно оставаться до следующей ступени
+    const passed = (((ct - g.delay) % sl) + sl) % sl;            // сколько прошло с предыдущей
+    let shift = (((sl - wait - passed) % sl) + sl) % sl;
+    if (shift > sl / 2) shift -= sl;
+    if (Math.abs(shift) > 0.9) { try { a.currentTime = ct + shift; } catch {} }
+  }
+}
+function alignSoon() { if (div > 1 && gov.size) { needAlign = true; kick(); } }
 
 // ---------- деление на группы ----------
 // Задача: разложить движущиеся элементы по N кадрам так, чтобы сумма площадей «общих прямоугольников» была наименьшей.
@@ -183,8 +196,9 @@ export function regroup() {
   }
   if (fixed) clusters.push({ r: fixed, gs: [], fixed: true });
   const byEl = new Map();
-  for (const g of gov.values()) {
-    if (!g.el.isConnected || (g.box && !g.box.classList.contains('play'))) { g.phase = 0; continue; }
+  for (const [a, g] of gov) {
+    if (!g.el.isConnected || a.playState === 'idle') { gov.delete(a); continue; } // блок удалён или скрыт: анимацию отменил браузер
+    if (g.box && !g.box.classList.contains('play')) { g.phase = 0; continue; }
     let c = byEl.get(g.el);
     if (c === undefined) {
       const r = rectOf(g.el, vw, vh);
@@ -213,6 +227,7 @@ export function regroup() {
     for (const g of c.gs) g.phase = ph;
   }
   groups = clusters.length;
+  alignSoon();
 }
 let regT = 0;
 /** Пересобрать группы чуть позже: после прокрутки, появления блока, запуска или остановки подписчика. */
@@ -221,10 +236,12 @@ export function regroupSoon() { if (div < 2) return; clearTimeout(regT); regT = 
 // ---------- запуск ----------
 if (typeof requestAnimationFrame === 'function') {
   setTimeout(measure, 350); // первые кадры после загрузки неровные
-  // Когда метроном никому не нужен (обычный экран, одни CSS-анимации), он стоит. Раз в 8 секунд включаем его на 2,5 секунды,
-  // чтобы страховка от перегрузки всё равно видела пропуски кадров.
-  setInterval(() => { if (!running && !document.hidden) { watchUntil = performance.now() + 2500; lwN = 0; lwDrop = 0; lwPrev = 0; kick(); } }, 8000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(measure, 300); });
   let rt = 0;
   addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { measure(); regroup(); }, 600); }, { passive: true });
+  // Ступени понемногу сползают относительно кадров экрана — подравниваем раз в полторы секунды.
+  setInterval(() => { if (!document.hidden) alignSoon(); }, 1500);
+  // Когда метроном никому не нужен (обычный экран, одни CSS-анимации), он стоит. Раз в 8 секунд включаем его на 2,5 секунды,
+  // чтобы страховка от перегрузки всё равно видела пропуски кадров.
+  setInterval(() => { if (!running && !document.hidden) { watchUntil = performance.now() + 2500; lwN = 0; lwDrop = 0; lwPrev = 0; kick(); } }, 8000);
 }

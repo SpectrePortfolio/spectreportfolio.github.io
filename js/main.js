@@ -398,12 +398,14 @@ addEventListener('pointercancel', () => { baEl = null; });
 // Проверяем положение сами в обработчике прокрутки: так блоки гарантированно проявятся,
 // даже если браузер придерживает IntersectionObserver.
 let pending = [], motions = [], pxEls = [], spEls = [];
+const SDA = typeof CSS !== 'undefined' && CSS.supports('animation-timeline: view()'); // анимации, привязанные к прокрутке, умеет сам браузер
 const MOTION = '.mo, [data-live], [data-gov]';
 function watch(root) {
   pending = pending.filter((el) => el.isConnected).concat([...root.querySelectorAll('.rv, .rvw, .rvi')]);
   adopt(document.body);
   motions = [...document.querySelectorAll(MOTION)];
-  pxEls = [...document.querySelectorAll('[data-px]')].filter((el) => !el.closest('.d-hero-media')); // фото первого экрана стоит на месте, см. css/fx.css
+  // параллакс фото: в Chrome и Edge его ведёт сам браузер (animation-timeline), фото первого экрана стоит на месте — см. css/fx.css
+  pxEls = SDA ? [] : [...document.querySelectorAll('[data-px]')].filter((el) => !el.closest('.d-hero-media'));
   spEls = [...document.querySelectorAll('[data-sp]')];
   reveal();
 }
@@ -466,9 +468,16 @@ function reveal() {
     const p = Math.max(0, Math.min(1, raw)).toFixed(3);
     if (el._p === p) return;
     el._p = p;
-    el.style.setProperty('--p', p);
+    // В Chrome и Edge «влёт» и цитату ведёт сам браузер (animation-timeline в css/fx.css) — переменная там не нужна,
+    // а её запись заставляла пересчитывать стили всей сцены в каждом кадре.
+    if (!(SDA && (mode === 'pin' || el.classList.contains('d-quote')))) el.style.setProperty('--p', p);
     if (mode === 'pin') {
       el.classList.toggle('past', p > 0.14);
+      // невидимые слои сцены выключаются совсем (с запасом до момента, когда они начинают проявляться)
+      el.classList.toggle('s1off', p > 0.45);
+      el.classList.toggle('s2off', p < 0.23);
+      el.classList.toggle('c2off', p < 0.46);
+      el.classList.toggle('early', p < 0.54);
       const num = el.querySelector('[data-zm-num]');
       if (num) { const txt = countPrice(num.dataset.zmNum, Math.max(0, Math.min(1, (p - 0.72) / 0.2))); if (num.textContent !== txt) num.textContent = txt; }
     }
