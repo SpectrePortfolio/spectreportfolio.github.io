@@ -1,9 +1,9 @@
 // Шаблон полноценного демо-лендинга: первый экран, бегущая строка, «о нас», каталог с кнопками,
-// галерея, форма брони/заказа и подвал. Характер задают data-b и css/demos.css.
-// У каждого сайта своя фирменная механика:
-//   магазин — рейл с одеждой (js/rail.js) и карусель образов; ресторан — круг из тарелок вокруг описания блюда;
-//   кофейня — стикеры, которые можно таскать; стоматология — «до/после»; фитнес — раздвигающиеся панели и пульс;
-//   недвижимость — слайд-шоу и список объектов с большим превью.
+// галерея, форма брони/заказа и подвал. Характер задают data-b и css/demos.css, порядок разделов — поле flow.
+// У каждого сайта своя фирменная механика, которую можно потрогать (подробно — в шапке js/play.js):
+//   магазин — рейл с одеждой (js/rail.js); ресторан — круг из тарелок, который крутят рукой; кофейня — предметы,
+//   которые можно оттянуть; стоматология — «до/после»; фитнес — ползунок нагрузки и пульс; недвижимость — «влёт» в дом;
+//   салон красоты — зеркало-лупа; автосервис — тахометр; онлайн-школа — колода карточек; отель — солнце и время суток.
 import { DEMOS, ORDER, photo } from './demos.js';
 import { mark, seal } from './works.js';
 import { railHTML } from './rail.js';
@@ -23,7 +23,24 @@ const ICO = {
   right: ico('<path d="m10 6 6 6-6 6"/>'),
   sides: ico('<path d="m9 7-5 5 5 5M15 7l5 5-5 5"/>'),
   close: ico('<path d="M6 6l12 12M18 6 6 18"/>'),
+  hand: ico('<path d="M9 11.500V5a1.500 1.500 0 0 1 3 0v5m0-1.500a1.500 1.500 0 0 1 3 0V11m0-.500a1.500 1.500 0 0 1 3 0V15a6 6 0 0 1-6 6h-.700a6 6 0 0 1-4.800-2.400L5 14.600a1.600 1.600 0 0 1 2.500-2L9 14.300"/>'),
 };
+
+// Шкала тахометра (автосервис): дуга от −130° до +130°, деления 0…8, красная зона от 6,5.
+function tachoSVG() {
+  const pt = (a, r) => { const t = (a * Math.PI) / 180; return `${(100 + r * Math.sin(t)).toFixed(1)} ${(100 - r * Math.cos(t)).toFixed(1)}`; };
+  const ang = (v) => -130 + (v / 8) * 260;
+  const arc = (a0, a1, r) => `M${pt(a0, r)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${pt(a1, r)}`;
+  let s = `<path class="tc-arc" d="${arc(-130, ang(6.5), 86)}"/><path class="tc-red" d="${arc(ang(6.5), 130, 86)}"/>`;
+  for (let i = 0; i <= 16; i++) {
+    const a = ang(i / 2), big = i % 2 === 0, hot = i >= 13 ? ' hot' : '';
+    s += `<path class="tk${hot}" d="M${pt(a, 86)}L${pt(a, big ? 72 : 78)}"/>`;
+    if (big) { const [x, y] = pt(a, 59).split(' '); s += `<text class="${hot.trim()}" x="${x}" y="${y}">${i / 2}</text>`; }
+  }
+  return s;
+}
+// Дуга, по которой ходит солнце (отель): половина синусоиды в рамке 100×100, растягивается под блок.
+const SUN_ARC = `M0 100${Array.from({ length: 24 }, (_, i) => `L${(((i + 1) / 24) * 100).toFixed(1)} ${(100 * (1 - Math.sin(((i + 1) / 24) * Math.PI))).toFixed(1)}`).join('')}`;
 
 const pic = (id, w, sizes, alt, extra = '') =>
   `<img src="${photo(id, w)}" srcset="${photo(id, w / 2)} ${w / 2}w, ${photo(id, w)} ${w}w" sizes="${sizes}" alt="${alt}" decoding="async" ${extra}>`;
@@ -45,6 +62,9 @@ export function demoHTML(id, L, { words, btn, TG, name: own, nameLen }) {
   const foot = (it) => `<div class="d-item-foot"><span class="d-price">${price(it.p)}</span>${addBtn}</div>`;
   const info = (it, n) => `<article class="lkc-info"><span class="lkc-num">${pad2(n + 1)} / ${pad2(t.items.length)}</span><h3>${it.n}</h3><p>${it.d}</p>${foot(it)}</article>`;
   const navBtns = `<div class="lkc-nav"><button type="button" data-look-go="-1" aria-label="${k.prev}">${ICO.left}</button><button type="button" data-look-go="1" aria-label="${k.next}">${ICO.right}</button><div class="lkc-prog"><i></i></div></div>`;
+  // подсказка к фирменной механике (js/play.js): исчезает, как только посетитель попробовал
+  const play = m.play || {};
+  const hint = (cls = '') => (play.hint ? `<em class="pl-hint${cls ? ` ${cls}` : ''}" aria-hidden="true">${ICO.hand}<span>${play.hint}</span></em>` : '');
 
   // ---------- первый экран ----------
   const copy = `<div class="d-hero-copy">
@@ -78,6 +98,7 @@ export function demoHTML(id, L, { words, btn, TG, name: own, nameLen }) {
       <div class="fl-o fl-cup" style="--x:50%;--y:60%;--s:1;--d:20;--r:0deg"><img src="img/cut/cup-s.webp" alt="" draggable="false" fetchpriority="high"><span class="fl-cup-mk">${mark(id)}</span></div>
     </div>
     <a class="fl-tag" href="#/${id}" data-to="d-list"><i></i><b>${t.items[0].n}</b><em>${price(t.items[0].p)}</em></a>
+    ${hint('fl-ph')}
     <div class="fl-foot"><p class="d-sub">${t.sub}</p><div class="d-actions"><a class="d-btn" href="#/${id}" data-to="d-book"><span>${t.cta}</span>${ICO.arrow}</a><a class="d-link" href="#/${id}" data-to="d-list">${t.listTitle}</a></div></div>`;
   } else if (d.hero === 'zoom') {
     // первый экран закреплён: при прокрутке камера «влетает» в дом и оказывается в гостиной
@@ -96,9 +117,34 @@ export function demoHTML(id, L, { words, btn, TG, name: own, nameLen }) {
     </div>
   </section>`;
   } else {
-    hero = `<div class="d-hero-media">${pic(d.img[0], 1800, heroSizes, name, 'fetchpriority="high" data-px=".06"')}</div>${copy}${float}`;
+    // салон красоты: зеркало-лупа — в круге тот же портрет, увеличенный вокруг его центра
+    const lens = d.play === 'lens' ? `<div class="lens"><div class="lens-g"><div class="lens-in">${pic(d.img[0], 1800, heroSizes, '', 'draggable="false"')}</div></div><i></i>${hint()}</div>` : '';
+    // отель: слои рассвета, заката и ночи над фото и солнце на дуге
+    const sun = d.play === 'sun' ? `<i class="sun-tint sun-dawn"></i><i class="sun-tint sun-dusk"></i><i class="sun-tint sun-night"></i>
+    <div class="sun-arc" data-sun="${play.times.join('|')}">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="${SUN_ARC}"/></svg>
+      <div class="sun-run"><button class="sun" type="button" role="slider" aria-label="${play.hint}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="30"><i class="sun-d"></i><i class="sun-n"></i><span class="sun-lab"></span></button></div>
+      ${hint()}
+    </div>` : '';
+    hero = `<div class="d-hero-media">${pic(d.img[0], 1800, heroSizes, name, 'fetchpriority="high" data-px=".06"')}</div>${lens}${sun}${copy}${float}`;
   }
-  if (d.timer) hero += `<div class="d-timer" aria-hidden="true"><i></i><b data-timer="2700">45:00</b><span>${m.stats[1]}</span></div>`;
+  if (d.timer) {
+    // фитнес: под таймером ползунок нагрузки, от него зависят пульс и «жар» первого экрана
+    const pw = d.play === 'power' ? `<div class="pw" data-pw>
+        <div class="pw-top"><span>${play.load}</span><b><i data-bpm>99</i> ${play.unit}</b></div>
+        <div class="pw-track" role="slider" tabindex="0" aria-label="${play.load}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="30"><i class="pw-fill"></i><div class="pw-run"><i class="pw-knob"></i></div></div>
+        ${hint()}
+      </div>` : '';
+    hero += `<div class="d-hud"><div class="d-timer" aria-hidden="true"><i></i><b data-timer="2700">45:00</b><span>${m.stats[1]}</span></div>${pw}</div>${pw ? '<i class="pw-heat"></i>' : ''}`;
+  }
+  if (d.play === 'tacho') {
+    hero += `<div class="tacho" data-tacho role="button" tabindex="0" aria-label="${play.hint}">
+      <svg viewBox="0 0 200 200" aria-hidden="true">${tachoSVG()}</svg>
+      <i class="tacho-needle"></i>
+      <div class="tacho-read"><b data-rpm>800</b><span>${play.unit}</span></div>
+      ${hint()}
+    </div>`;
+  }
   if (d.glass) {
     hero += `<div class="d-glass d-glass-a"><b>${d.stats[2]}</b><span>${m.stats[2]}</span></div>
     <div class="d-glass d-glass-b">${ICO.clock}<div>${d.opts[1][1].map((v, i) => `<em class="${i === 1 ? 'on' : ''}">${v}</em>`).join('')}</div></div>`;
@@ -116,6 +162,25 @@ export function demoHTML(id, L, { words, btn, TG, name: own, nameLen }) {
     catalog = `<div class="orb" data-look="orbit" data-live>
       <div class="orb-ring">${[0, 1, 2, 3, 0, 1, 2, 3].map((n, i) => `<button class="lkc-it orb-it" type="button" data-look-i="${i}" style="--n:${i}" aria-label="${t.items[n].n}">${pic(d.img[2 + n], 800, '(max-width: 860px) 26vw, 200px', t.items[n].n, 'loading="lazy"')}</button>`).join('')}</div>
       <div class="lkc-side orb-center">${t.items.map(info).join('')}${navBtns}</div>
+      ${hint('orb-ph')}
+    </div>`;
+  } else if (d.list === 'deck') {
+    // колода карточек: верхнюю смахивают вправо («выбрать») или влево («дальше»), js/play.js
+    catalog = `<div class="deck" data-deck>
+      <div class="deck-stage">${t.items.map((it, n) => `<article class="deck-card" data-i="${n}">
+        <div class="deck-media">${pic(d.img[2 + n], 800, '(max-width: 860px) 86vw, 420px', it.n, 'loading="lazy" draggable="false"')}${it.tag ? `<span class="d-tag">${it.tag}</span>` : ''}
+          <b class="deck-st deck-yes">${m.act}</b><b class="deck-st deck-no">${play.skip}</b></div>
+        <div class="deck-body"><h3>${it.n}</h3><p>${it.d}</p></div>
+        ${foot(it)}
+      </article>`).join('')}</div>
+      <div class="deck-side">
+        <span class="deck-num lkc-num">01 / ${pad2(t.items.length)}</span>
+        <p class="deck-hint">${ICO.hand}<span>${play.hint}</span></p>
+        <div class="deck-btns">
+          <button type="button" data-deck-go="-1">${ICO.close}<span>${play.skip}</span></button>
+          <button type="button" class="yes" data-deck-go="1">${ICO.check}<span>${m.act}</span></button>
+        </div>
+      </div>
     </div>`;
   } else if (d.list === 'pan') {
     catalog = `<div class="pan">${t.items.map((it, n) => `<article class="pan-it${n ? '' : ' on'}" data-pan>
@@ -151,6 +216,30 @@ export function demoHTML(id, L, { words, btn, TG, name: own, nameLen }) {
       </div>
     </section>` : '';
 
+  // ---------- разделы между бегущей строкой и формой: у каждого сайта свой порядок (поле flow в js/demos.js) ----------
+  const parts = {
+    about: `<section class="d-about${d.flip ? ' flip' : ''}" id="d-about">
+    <div class="d-about-media rvi">${pic(d.img[1], 1400, '(max-width: 860px) 100vw, 50vw', m.about.t, 'loading="lazy" data-px=".05"')}</div>
+    <div class="d-about-copy">
+      <h2 class="rvw">${words(m.about.t)}</h2>
+      <p class="rv">${m.about.d}</p>
+      <dl class="d-stats">${d.stats.map((n, i) => `<div class="rv" style="--i:${i}"><dt data-n>${n}</dt><dd>${m.stats[i]}</dd></div>`).join('')}</dl>
+    </div>
+  </section>`,
+    list: `<section class="d-list" id="d-list">
+    <div class="d-head"><h2 class="rvw">${words(t.listTitle)}</h2><a class="d-link" href="#/${id}" data-to="d-book">${t.cta}</a></div>
+    ${catalog}
+  </section>`,
+    ba: beforeAfter,
+    gallery: `<section class="d-gallery">
+    <p class="d-quote" data-sp style="--n:${t.strip.split(' ').length}">${words(t.strip)}</p>
+    <div class="d-mosaic${d.mos ? ` mos-${d.mos}` : ''}">
+      ${[6, 7, 8].map((n, i) => `<figure class="g${i + 1} rvi" style="--i:${i}">${pic(d.img[n], i ? 1000 : 1400, '(max-width: 860px) 100vw, 55vw', name, `loading="lazy"${i ? '' : ' data-px=".05"'}`)}</figure>`).join('')}
+    </div>
+  </section>`,
+  };
+  const flow = (d.flow || ['about', 'list', 'ba', 'gallery']).map((key) => parts[key]).join('\n  ');
+
   return `
 <div class="d d-${id} d-h-${d.hero}" data-b="${id}"${own ? ` style="--nl:${nameLen || 8}"` : ''}>
   <header class="d-nav">
@@ -166,32 +255,12 @@ export function demoHTML(id, L, { words, btn, TG, name: own, nameLen }) {
     </div>
   </header>
 
-  ${heroSection || `<section class="d-hero" id="d-top" data-live${d.hero === 'float' ? ' data-par data-sp="top"' : d.glass ? ' data-par' : ''}>${hero}</section>`}
+  ${heroSection || `<section class="d-hero" id="d-top" data-live${d.hero === 'float' ? ' data-par data-sp="top"' : d.glass ? ' data-par' : ''}${d.play === 'lens' ? ' data-lens' : ''}>${hero}</section>`}
 
   <div class="d-ticker" data-live aria-hidden="true"><div>${[0, 1].map(() => tick.map((w) => `<span>${w}</span>`).join('')).join('')}</div></div>
   ${pulse}
 
-  <section class="d-about" id="d-about">
-    <div class="d-about-media rvi">${pic(d.img[1], 1400, '(max-width: 860px) 100vw, 50vw', m.about.t, 'loading="lazy" data-px=".05"')}</div>
-    <div class="d-about-copy">
-      <h2 class="rvw">${words(m.about.t)}</h2>
-      <p class="rv">${m.about.d}</p>
-      <dl class="d-stats">${d.stats.map((n, i) => `<div class="rv" style="--i:${i}"><dt data-n>${n}</dt><dd>${m.stats[i]}</dd></div>`).join('')}</dl>
-    </div>
-  </section>
-
-  <section class="d-list" id="d-list">
-    <div class="d-head"><h2 class="rvw">${words(t.listTitle)}</h2><a class="d-link" href="#/${id}" data-to="d-book">${t.cta}</a></div>
-    ${catalog}
-  </section>
-  ${beforeAfter}
-
-  <section class="d-gallery">
-    <p class="d-quote" data-sp style="--n:${t.strip.split(' ').length}">${words(t.strip)}</p>
-    <div class="d-mosaic">
-      ${[6, 7, 8].map((n, i) => `<figure class="g${i + 1} rvi" style="--i:${i}">${pic(d.img[n], i ? 1000 : 1400, '(max-width: 860px) 100vw, 55vw', name, `loading="lazy"${i ? '' : ' data-px=".05"'}`)}</figure>`).join('')}
-    </div>
-  </section>
+  ${flow}
 
   <section class="d-book" id="d-book">
     <div class="d-book-copy">

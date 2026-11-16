@@ -48,15 +48,21 @@
 /* ---------- ресторан: круг из тарелок ---------- */
 @property --orb { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
 @property --s { syntax: '<number>'; inherits: false; initial-value: .8; }
-.orb { --orb: 0deg; position: relative; width: min(100%, 880px); aspect-ratio: 1; margin: 0 auto; transition: --orb 1.2s var(--ease); }
-.orb-ring { position: absolute; inset: 0; }
+/* Круг поворачивается целиком (transform у .orb-ring), а каждая тарелка тем же переходом крутится обратно и остаётся
+   ровной. Оба перехода одинаковой длины идут на стороне видеокарты. Раньше анимировалась сама переменная --orb —
+   это пересчёт стилей и перерисовка восьми тарелок в каждом кадре. Рукой круг крутит js/main.js (класс .spin). */
+.orb { --orb: 0deg; position: relative; width: min(100%, 880px); aspect-ratio: 1; margin: 0 auto; }
+.orb-ring { position: absolute; inset: 0; transform: rotate(var(--orb)); transition: transform 1.2s var(--ease); touch-action: pan-y; cursor: grab; }
+.orb.spin .orb-ring { cursor: grabbing; }
+.orb.spin .orb-ring, .orb.spin .orb-it { transition: none; will-change: transform; }
+.orb-ph { position: absolute; left: 0; top: 0; }
 .orb-ring::before { content: ''; position: absolute; inset: 12%; border-radius: 50%; border: 1px solid rgba(200, 161, 90, .4); }
 .orb-ring::after { content: ''; position: absolute; inset: 3%; border-radius: 50%; border: 1px dashed rgba(200, 161, 90, .22); animation: spin 90s linear infinite; }
 .orb .orb-it {
   --s: .8; left: 50%; top: 50%; width: 22%; aspect-ratio: 1; border-radius: 50%; z-index: 1; opacity: .6; filter: none;
-  transform: translate(-50%, -50%) rotate(calc(var(--orb) + var(--n) * 45deg)) translateY(-172%) rotate(calc((var(--orb) + var(--n) * 45deg) * -1)) scale(var(--s));
+  transform: translate(-50%, -50%) rotate(calc(var(--n) * 45deg)) translateY(-172%) rotate(calc(var(--n) * -45deg - var(--orb))) scale(var(--s));
   box-shadow: 0 0 0 1px rgba(200, 161, 90, .5), 0 30px 50px -24px #000;
-  transition: --s .9s var(--ease), opacity .6s;
+  transition: transform 1.2s var(--ease), opacity .6s;
 }
 .orb .orb-it.on { --s: 1.34; opacity: 1; z-index: 2; box-shadow: 0 0 0 1px rgba(200, 161, 90, .8), 0 0 0 12px rgba(200, 161, 90, .1), 0 40px 60px -26px #000; }
 .orb-center { position: absolute; left: 50%; top: 55%; width: 44%; transform: translate(-50%, -50%); justify-items: center; text-align: center; gap: 20px; }
@@ -182,8 +188,9 @@
 .fl-glow { position: absolute; left: 50%; top: 62%; width: min(60vw, 760px); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; background: radial-gradient(closest-side, rgba(242, 106, 27, .34), rgba(242, 106, 27, .08) 60%, transparent); }
 .fl-o {
   position: absolute; left: var(--x); top: var(--y); will-change: transform;
-  transform: translate(-50%, -50%) translate3d(calc(var(--mx) * var(--d) * -1px), calc(var(--my) * var(--d) * -1px - var(--p) * var(--d) * 9px), 0) rotate(var(--r)) scale(calc(var(--s) * (1 + var(--p) * var(--d) * .012)));
+  transform: translate(var(--dx, 0px), var(--dy, 0px)) translate(-50%, -50%) translate3d(calc(var(--mx) * var(--d) * -1px), calc(var(--my) * var(--d) * -1px - var(--p) * var(--d) * 9px), 0) rotate(calc(var(--r) + var(--dr, 0deg))) scale(calc(var(--s) * (1 + var(--p) * var(--d) * .012)));
   transition: transform .7s cubic-bezier(.2, .7, .2, 1);
+  pointer-events: auto; cursor: grab;
   animation: fl-bob 7s ease-in-out infinite; animation-delay: calc(var(--d) * -.19s);
 }
 @keyframes fl-bob { 50% { translate: 0 -12px; } }
@@ -437,3 +444,185 @@
    главной проваливалась на 35–45 мс (трассировка Chrome 2026-11-17: без иллюстраций провалов нет). */
 .s-art { animation: none; }
 .s-card:hover .s-art { animation: floaty 3.6s ease-in-out infinite; }
+
+/* ====================================================================================================
+   Фирменные механики (js/play.js): у каждого сайта своя вещь, которую можно потрогать
+   ==================================================================================================== */
+/* Общие правила: двигаются только transform и opacity; отдельным слоем элемент становится на время жеста
+   (will-change по классу), чтобы в покое лишних слоёв не было. */
+
+/* Подсказка к механике. Исчезает, когда посетитель попробовал: блок получает класс .used. */
+.pl-hint { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 10px; border-radius: 999px; background: rgba(12, 12, 14, .84); color: #fff; font: 500 13px/1.2 var(--fb); white-space: nowrap; pointer-events: none; transition: opacity .5s, transform .5s var(--ease); animation: rise .8s 1.8s var(--ease) both; }
+.pl-hint svg { width: 16px; height: 16px; flex: none; }
+.used .pl-hint { opacity: 0; transform: translateY(6px); }
+
+/* ---------- кофейня: предметы оттягиваются и пружинят назад ---------- */
+.d .fl-o.drag { transition: none; cursor: grabbing; z-index: 2; }
+.d .fl-o.back { transition: transform .9s cubic-bezier(.3, 1.7, .4, 1); }
+/* Покачивается только стакан. Круассан и бокал на разных краях экрана вместе со стаканом заставляли браузер
+   обновлять полосу во всю ширину первого экрана; теперь их можно двигать самому. */
+.d .fl-croissant, .d .fl-glass { animation: none; }
+.fl-ph { position: absolute; z-index: 3; left: calc(50% - clamp(150px, 17vw, 290px)); top: 63%; translate: -100% 0; }
+@media (hover: none) { .fl-ph { display: none; } .d .fl-o { cursor: auto; } }
+
+/* ---------- салон красоты: зеркало-лупа ---------- */
+/* --cx, --cy — центр зеркала в координатах фото; --ox, --oy — где фото лежит на первом экране; --lw, --lh — размер фото
+   (всё в пикселях, пишет js/play.js). Внутри зеркала то же фото, увеличенное в --m раз вокруг центра зеркала. */
+.lens {
+  --ls: clamp(150px, 15vw, 230px); --m: 1.6;
+  position: absolute; left: 0; top: 0; z-index: 2; width: var(--ls); height: var(--ls); border-radius: 50%;
+  transform: translate(calc(var(--ox, 0px) + var(--cx, 0px) - 50%), calc(var(--oy, 0px) + var(--cy, 0px) - 50%)); will-change: transform;
+  touch-action: none; cursor: grab; animation: lens-in .9s 1.5s var(--ease) both;
+}
+@keyframes lens-in { from { opacity: 0; scale: .6; } }
+.lens-g { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: var(--bg); box-shadow: 0 0 0 3px #fff, 0 0 0 9px color-mix(in srgb, var(--acc) 36%, transparent), 0 30px 50px -20px rgba(43, 26, 36, .6); }
+.lens-g::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 30% 24%, rgba(255, 255, 255, .4), rgba(255, 255, 255, 0) 42%); box-shadow: inset 0 0 26px rgba(43, 26, 36, .28); }
+.lens-in {
+  position: absolute; left: 0; top: 0; width: var(--lw, 100%); height: var(--lh, 100%); border-radius: var(--hr); overflow: hidden; transform-origin: 0 0;
+  transform: translate(calc(var(--ls) / 2 - var(--m) * var(--cx, 0px)), calc(var(--ls) / 2 - var(--m) * var(--cy, 0px))) scale(var(--m)); will-change: transform;
+}
+.lens > i { position: absolute; z-index: -1; left: calc(85% - 7px); top: 85%; width: 14px; height: 46%; border-radius: 8px; background: linear-gradient(90deg, #8e3460, var(--acc) 45%, #d98fb2); transform-origin: 50% 0; transform: rotate(-45deg); box-shadow: 0 12px 20px -8px rgba(43, 26, 36, .5); }
+.lens .pl-hint { position: absolute; left: 50%; bottom: calc(100% + 16px); translate: -50% 0; }
+@media (hover: hover) and (pointer: fine) { .lens { pointer-events: none; } }
+
+/* ---------- фитнес: ползунок нагрузки под таймером ---------- */
+.d-hud { position: absolute; z-index: 3; right: var(--pad); top: 108px; display: grid; gap: 10px; justify-items: end; }
+.d-hud .d-timer { position: static; }
+.pw { position: relative; width: 100%; min-width: 250px; padding: 14px 16px 16px; background: #0a0a0a; color: #fff; animation: rise .9s .75s var(--ease) both; }
+.pw-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.pw-top span { opacity: .7; }
+.pw-top b { font-family: var(--f); font-weight: 700; font-style: italic; }
+.pw-top b i { margin-right: 4px; font-style: inherit; font-size: 1.9rem; line-height: 1; font-variant-numeric: tabular-nums; color: #f2330d; }
+.pw-track { position: relative; height: 26px; cursor: ew-resize; touch-action: none; outline-offset: 4px; }
+.pw-track::before { content: ''; position: absolute; left: 0; right: 0; top: 11px; height: 4px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .34) 0 2px, transparent 2px 10px); }
+.pw-fill { position: absolute; left: 0; right: 0; top: 11px; height: 4px; background: #f2330d; transform-origin: left; transform: scaleX(var(--pw, .3)); will-change: transform; }
+.pw-run { position: absolute; inset: 0; pointer-events: none; transform: translateX(calc(var(--pw, .3) * 100%)); will-change: transform; }
+.pw-knob { position: absolute; left: -9px; top: 2px; width: 18px; height: 22px; background: #fff; box-shadow: 0 0 0 3px #0a0a0a; }
+.pw .pl-hint { position: absolute; right: 0; top: calc(100% + 10px); }
+/* «Жар»: красный слой между фото и текстом. До нагрузки по умолчанию (0,3) он прозрачен и не рисуется вовсе. */
+.pw-heat { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(242, 51, 13, 0) 0%, rgba(242, 51, 13, .5) 60%, rgba(255, 80, 20, .86) 100%); opacity: clamp(0, calc((var(--heat, .3) - .3) / .7), 1); }
+.d-hero.pw-drag .pw-heat { will-change: opacity; }
+.d-pulse svg { transform: scaleY(calc(.91 + var(--pw, .3) * .3)); }
+
+/* ---------- автосервис: тахометр ---------- */
+.tacho {
+  position: absolute; z-index: 3; right: var(--pad); top: 104px; width: clamp(170px, 15vw, 230px); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle at 50% 36%, #252c35, #0c0f13 72%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .16), 0 0 0 7px rgba(16, 19, 23, .72), 0 30px 60px -24px #000;
+  cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; transition: box-shadow .3s; animation: rise .9s .7s var(--ease) both;
+}
+.tacho.held { box-shadow: 0 0 0 1px rgba(255, 214, 10, .75), 0 0 0 7px rgba(16, 19, 23, .72), 0 0 60px -8px rgba(255, 214, 10, .6); }
+.tacho.hot { box-shadow: 0 0 0 1px rgba(255, 59, 48, .85), 0 0 0 7px rgba(16, 19, 23, .72), 0 0 70px -6px rgba(255, 59, 48, .7); }
+.tacho svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tacho path { fill: none; stroke: rgba(255, 255, 255, .78); stroke-width: 2; }
+.tacho .tc-arc { stroke: rgba(255, 255, 255, .28); stroke-width: 3; }
+.tacho .tc-red { stroke: #ff3b30; stroke-width: 5; }
+.tacho .tk.hot { stroke: #ff3b30; }
+.tacho text { fill: #eef1f4; font: italic 800 17px var(--f); text-anchor: middle; dominant-baseline: central; }
+.tacho text.hot { fill: #ff6a60; }
+.tacho-needle { position: absolute; left: calc(50% - 2px); bottom: 50%; width: 4px; height: 37%; border-radius: 3px 3px 0 0; background: linear-gradient(#ffd60a, #ffb400); transform-origin: 50% 100%; transform: rotate(-104deg); will-change: transform; }
+.tacho.hot .tacho-needle { background: #ff3b30; }
+.tacho::after { content: ''; position: absolute; left: 50%; top: 50%; width: 13%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; background: #eef1f4; box-shadow: 0 0 0 4px #101317; }
+.tacho-read { position: absolute; left: 0; right: 0; bottom: 14%; text-align: center; line-height: 1; pointer-events: none; }
+.tacho-read b { display: block; font-family: var(--f); font-style: italic; font-weight: 800; font-size: clamp(1.15rem, 1.6vw, 1.6rem); font-variant-numeric: tabular-nums; color: #fff; }
+.tacho-read span { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; opacity: .62; }
+.tacho.hot .tacho-read b { color: #ff3b30; }
+.tacho .pl-hint { position: absolute; right: 0; top: calc(100% + 16px); }
+
+/* ---------- отель: солнце на дуге и время суток ---------- */
+/* --t — положение солнца 0…1, --sky — то же значение для неба, но обновляется реже (оба пишет js/play.js). Слои рассвета,
+   заката и ночи лежат между фото и текстом; днём (0,22…0,52) все три прозрачны и не рисуются. Отдельными слоями они
+   становятся только пока солнце тащат. */
+.sun-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.sun-dawn { background: linear-gradient(180deg, rgba(74, 96, 180, .46) 0%, rgba(255, 158, 140, .44) 58%, rgba(255, 210, 160, .34) 100%); opacity: clamp(0, calc(1 - var(--sky, .3) / .22), 1); }
+.sun-dusk { background: linear-gradient(180deg, rgba(64, 26, 84, .56) 0%, rgba(236, 104, 62, .46) 56%, rgba(255, 168, 86, .36) 100%); opacity: clamp(0, calc(1 - max(var(--sky, .3) - .68, .68 - var(--sky, .3)) / .16), 1); }
+.sun-night {
+  background:
+    radial-gradient(1.6px 1.6px at 8% 12%, #fff 50%, transparent 52%), radial-gradient(1.2px 1.2px at 17% 31%, #fff 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 26% 9%, #fff 50%, transparent 52%), radial-gradient(1px 1px at 34% 24%, #fff 50%, transparent 52%),
+    radial-gradient(1.8px 1.8px at 43% 14%, #fff 50%, transparent 52%), radial-gradient(1.1px 1.1px at 51% 34%, #fff 50%, transparent 52%),
+    radial-gradient(1.5px 1.5px at 58% 7%, #fff 50%, transparent 52%), radial-gradient(1px 1px at 66% 21%, #fff 50%, transparent 52%),
+    radial-gradient(1.7px 1.7px at 73% 38%, #fff 50%, transparent 52%), radial-gradient(1.2px 1.2px at 81% 11%, #fff 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 88% 27%, #fff 50%, transparent 52%), radial-gradient(1px 1px at 94% 16%, #fff 50%, transparent 52%),
+    radial-gradient(1.3px 1.3px at 12% 44%, #fff 50%, transparent 52%), radial-gradient(1.1px 1.1px at 62% 45%, #fff 50%, transparent 52%),
+    linear-gradient(180deg, rgba(3, 8, 28, .88) 0%, rgba(8, 18, 50, .7) 60%, rgba(5, 12, 34, .84) 100%);
+  opacity: clamp(0, calc((var(--sky, .3) - .7) / .16), 1);
+}
+.d-hero.sunning .sun-tint { will-change: opacity; }
+.sun-arc { --ah: clamp(110px, 21vh, 190px); position: absolute; z-index: 3; left: 46%; right: calc(var(--pad) + 40px); top: 126px; height: var(--ah); animation: rise .9s .9s var(--ease) both; }
+.sun-arc svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.sun-arc path { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 1.5; stroke-dasharray: 3 7; vector-effect: non-scaling-stroke; }
+.sun-run { position: absolute; inset: 0; pointer-events: none; transform: translateX(calc(var(--t, .3) * 100%)); will-change: transform; }
+.sun { position: absolute; left: -27px; top: -27px; width: 54px; height: 54px; border-radius: 50%; pointer-events: auto; cursor: grab; touch-action: none; transform: translateY(calc((1 - sin(var(--t, .3) * 180deg)) * var(--ah))); will-change: transform; }
+.sun:active { cursor: grabbing; }
+.sun i { position: absolute; inset: 0; border-radius: 50%; }
+.sun-d { background: radial-gradient(circle at 36% 34%, #fffbe0, #ffd75e 52%, #ffab2e); box-shadow: 0 0 0 9px rgba(255, 214, 110, .22), 0 0 46px 14px rgba(255, 190, 80, .6); opacity: calc(1 - clamp(0, (var(--t, .3) - .72) / .1, 1)); }
+.sun-n { background: radial-gradient(circle at 36% 34%, #fff, #e3e9f6 58%, #b8c3dc); box-shadow: inset -10px -7px 0 rgba(112, 128, 168, .45), 0 0 34px 8px rgba(186, 204, 255, .4); opacity: clamp(0, calc((var(--t, .3) - .72) / .1), 1); }
+.sun-lab { position: absolute; left: 50%; top: calc(100% + 14px); translate: -50% 0; padding: 5px 12px; border-radius: 999px; background: rgba(6, 20, 26, .66); color: #fff; font: 500 13px/1.3 var(--dfb); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sun-arc .pl-hint { position: absolute; right: 0; top: calc(100% + 18px); }
+
+/* ---------- онлайн-школа: колода карточек ---------- */
+.deck { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: clamp(24px, 4vw, 70px); align-items: center; }
+.deck-stage { display: grid; place-items: center; padding: 6px 0 52px; touch-action: pan-y; }
+.deck-card { grid-area: 1 / 1; position: relative; width: min(400px, 100%); display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; background: #fff; box-shadow: 0 1px 0 rgba(23, 18, 58, .06), 0 30px 60px -32px rgba(23, 18, 58, .55); transition: transform .55s var(--ease), opacity .4s, box-shadow .3s; }
+.deck-card:not([data-pos="0"]) { pointer-events: none; }
+.deck-card[data-pos="0"] { cursor: grab; will-change: transform; }
+.deck-card[data-pos="1"] { transform: translate(30px, 8px) rotate(5.5deg) scale(.97); }
+.deck-card[data-pos="2"] { transform: translate(-30px, 14px) rotate(-5.5deg) scale(.95); }
+.deck-card[data-pos="3"] { transform: translate(0, 36px) scale(.9); }
+.deck-card.drag { transition: none; cursor: grabbing; }
+.deck-card.fly { transition: transform .36s cubic-bezier(.5, 0, .9, .5), opacity .36s; }
+.deck-card.swap { transition: none; }
+.deck-card.is-on { box-shadow: 0 0 0 3px var(--acc), 0 30px 60px -32px rgba(107, 61, 245, .7); }
+.deck-media { position: relative; aspect-ratio: 4 / 3; margin: 10px 10px 0; border-radius: 20px; overflow: hidden; }
+.deck-media img { pointer-events: none; }
+.deck-media .d-tag { top: auto; bottom: 12px; }
+.deck-body { padding: 18px 20px 0; }
+.deck-body h3 { font-family: var(--f); font-weight: 600; font-size: 1.45rem; line-height: 1.15; margin-bottom: 8px; }
+.deck-body p { font-size: 15px; color: var(--soft); }
+.deck-card .d-item-foot { padding: 18px 20px 20px; }
+/* штампы «выбрать» и «дальше» проявляются по мере того, как карточку тянут: --sw от −1 до 1 */
+.deck-st { position: absolute; top: 16px; padding: 8px 16px; border-radius: 12px; font-weight: 700; font-size: 1.05rem; text-transform: uppercase; letter-spacing: .04em; opacity: 0; pointer-events: none; }
+.deck-yes { left: 16px; background: #c8f25a; color: #17123a; transform: rotate(-8deg); }
+.deck-no { right: 16px; background: #17123a; color: #fff; transform: rotate(8deg); }
+.deck-card[data-pos="0"] .deck-yes { opacity: max(0, var(--sw, 0)); }
+.deck-card[data-pos="0"] .deck-no { opacity: max(0, calc(var(--sw, 0) * -1)); }
+.deck-side { display: grid; gap: 22px; justify-items: start; }
+.deck-side .deck-num { margin: 0; }
+.deck-hint { display: flex; align-items: flex-start; gap: 12px; max-width: 30ch; font-size: 1.15rem; line-height: 1.35; color: var(--soft); }
+.deck-hint svg { flex: none; width: 26px; height: 26px; margin-top: 2px; color: var(--acc); }
+.deck-btns { display: flex; flex-wrap: wrap; gap: 12px; }
+.deck-btns button { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 24px 0 18px; border-radius: 999px; border: 1.5px solid var(--rule); font-weight: 600; font-family: var(--dfb); transition: background .3s, color .3s, border-color .3s, transform .25s var(--ease); }
+.deck-btns button:hover { border-color: var(--ink); }
+.deck-btns button.yes { background: var(--acc); color: #fff; border-color: var(--acc); }
+.deck-btns button.yes:hover { background: var(--ink); border-color: var(--ink); }
+.deck-btns button:active { transform: scale(.95); }
+
+/* ---------- у каждого сайта свой порядок разделов и своя раскладка галереи ---------- */
+.d-ticker + .d-gallery, .d-pulse + .d-gallery { padding-top: var(--pad2); }
+@media (min-width: 861px) {
+  .d-about.flip .d-about-media { order: 1; }
+  .d-mosaic.mos-r { grid-template-columns: 1fr 1.4fr; }
+  .d-mosaic.mos-r .g1 { grid-column: 2; }
+  .d-mosaic.mos-r .g2 { grid-column: 1; grid-row: 1; }
+  .d-mosaic.mos-r .g3 { grid-column: 1; grid-row: 2; }
+  .d-mosaic.mos-row { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: 1fr; height: min(74vh, 660px); }
+  .d-mosaic.mos-row .g1 { grid-row: auto; margin-bottom: 9%; }
+  .d-mosaic.mos-row .g2 { margin-top: 9%; }
+  .d-mosaic.mos-row .g3 { margin-block: 4.5%; }
+}
+
+@media (max-width: 860px) {
+  .d-hud { top: 76px; }
+  .pw { min-width: 200px; padding: 10px 12px 12px; }
+  .pw .pl-hint { display: none; }
+  .d-hotel .d-hero-media::after { background: linear-gradient(180deg, rgba(6, 20, 26, .5) 0%, rgba(6, 20, 26, .1) 26%, rgba(6, 20, 26, .52) 50%, rgba(6, 20, 26, .88) 100%); }
+  .tacho { top: 78px; width: 124px; }
+  .tacho .pl-hint { display: none; }
+  .sun-arc { --ah: 84px; left: calc(var(--pad) + 20px); right: calc(var(--pad) + 20px); top: 92px; }
+  .lens { --ls: 132px; }
+  .deck { grid-template-columns: 1fr; }
+  .deck-side { order: -1; }
+  .orb-ph { top: -6px; }
+}
+.lite .pl-hint, .lite .lens, .lite .tacho, .lite .pw, .lite .sun-arc { animation: none; }

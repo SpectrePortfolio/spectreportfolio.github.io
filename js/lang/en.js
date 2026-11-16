@@ -96,12 +96,14 @@ export default {
       about: { t: 'A kitchen built around open fire', d: 'We cook over charcoal and wood, without rushing. The menu changes every six weeks with the season, and the produce comes from farms nearby.' },
       stats: ['wines on the list', 'seats in the room', 'weeks per menu'],
       act: 'Add', done: 'Added',
+      play: { hint: 'Spin the ring' },
       book: { t: 'Book a table', d: 'Pick a day, a time and the number of guests. We confirm within an hour.', go: 'Book now' },
     },
     coffee: {
       about: { t: 'Roasted by us, every week', d: 'We buy green beans from small farms and roast them in small batches right in the shop. That is why our coffee is always fresh, never older than ten days.' },
       stats: ['opening time', 'days from roast to cup', 'beans to choose from'],
       act: 'Order', done: 'Ordered',
+      play: { hint: 'Drag the cup or a bean' },
       book: { t: 'Order ahead', d: 'Pick a time, a size and a quantity. Your coffee will be waiting on the counter.', go: 'Place order' },
     },
     dental: {
@@ -122,6 +124,7 @@ export default {
       about: { t: 'Small groups, full effort', d: 'No more than twelve people per group, so the coach sees everyone. We match the load to your level and track progress after every session.' },
       stats: ['people per group', 'minutes per session', 'classes a week'],
       act: 'Join', done: 'You’re in',
+      play: { hint: 'Drag the slider', load: 'Load', unit: 'bpm' },
       book: { t: 'Come for a trial class', d: 'Pick a day and a time. The first class is free, and we provide kit and a towel.', go: 'Book my spot' },
     },
     realty: {
@@ -135,6 +138,7 @@ export default {
       stats: ['stylists on the team', 'years in the same place', 'average guest rating'],
       act: 'Book',
       done: 'Booked',
+      play: { hint: 'Move the mirror' },
       book: { t: 'Pick a day and a time', d: 'Choose a day and time that suit you. We will confirm your booking by message.', go: 'Book a visit' },
     },
     auto: {
@@ -142,6 +146,7 @@ export default {
       stats: ['years in repair', 'service bays', 'months of warranty'],
       act: 'Book',
       done: 'Booked',
+      play: { hint: 'Press and hold to rev', unit: 'rpm' },
       book: { t: 'Book your car in', d: 'Choose a day and time. A service adviser will call to confirm the details.', go: 'Book a service' },
     },
     school: {
@@ -149,6 +154,7 @@ export default {
       stats: ['people per group', 'weeks to your first project', 'first lesson'],
       act: 'Choose',
       done: 'Chosen',
+      play: { hint: 'Swipe the card: right to choose, left to skip', skip: 'Skip' },
       book: { t: 'Sign up for a trial lesson', d: 'Pick a day and a time. We will send the link and a short level test.', go: 'Sign up' },
     },
     hotel: {
@@ -156,6 +162,7 @@ export default {
       stats: ['rooms', 'metres to the sea', 'breakfast until'],
       act: 'Choose',
       done: 'Chosen',
+      play: { hint: 'Drag the sun', times: ['Dawn', 'Day', 'Sunset', 'Night'] },
       book: { t: 'Book a room', d: 'Choose your arrival date and the number of guests. Confirmation arrives by email within an hour.', go: 'Book now' },
     },
   },
@@ -324,7 +331,7 @@ export default {
     multi: 'pick several',
     unsure: 'Not sure yet',
     other: 'Other',
-    when: ['Urgent, within two weeks', 'Within a month', 'No rush'],
+    when: ['Urgent, within a week', 'Within two weeks', 'Within a month', 'No rush'],
     hello: 'Hello!',
     what: 'I need: {v}.',
     biz: 'Business: {v}.',

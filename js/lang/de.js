@@ -96,12 +96,14 @@ export default {
       about: { t: 'Eine Küche rund ums offene Feuer', d: 'Wir kochen über Holzkohle und Holz, ohne Eile. Die Karte wechselt alle sechs Wochen mit der Saison, die Zutaten kommen von Höfen aus der Umgebung.' },
       stats: ['Weine auf der Karte', 'Plätze im Raum', 'Wochen pro Karte'],
       act: 'Hinzufügen', done: 'Hinzugefügt',
+      play: { hint: 'Drehen Sie den Kreis' },
       book: { t: 'Reservieren Sie einen Tisch', d: 'Wählen Sie Tag, Uhrzeit und Anzahl der Gäste. Die Bestätigung kommt innerhalb einer Stunde.', go: 'Jetzt reservieren' },
     },
     coffee: {
       about: { t: 'Selbst geröstet, jede Woche', d: 'Wir kaufen Rohkaffee von kleinen Farmen und rösten in kleinen Mengen direkt im Café. Deshalb ist unser Kaffee immer frisch, nie älter als zehn Tage.' },
       stats: ['Uhr öffnen wir', 'Tage von der Röstung zur Tasse', 'Bohnen zur Auswahl'],
       act: 'Bestellen', done: 'Bestellt',
+      play: { hint: 'Ziehen Sie am Becher oder an einer Bohne' },
       book: { t: 'Bestellen Sie vor', d: 'Wählen Sie Uhrzeit, Größe und Menge. Ihr Kaffee wartet an der Theke auf Sie.', go: 'Bestellung abschicken' },
     },
     dental: {
@@ -122,6 +124,7 @@ export default {
       about: { t: 'Kleine Gruppen, voller Einsatz', d: 'Höchstens zwölf Personen pro Gruppe, so sieht der Trainer jeden. Wir passen die Belastung an Ihr Niveau an und halten den Fortschritt nach jedem Training fest.' },
       stats: ['Personen pro Gruppe', 'Minuten pro Training', 'Kurse pro Woche'],
       act: 'Anmelden', done: 'Angemeldet',
+      play: { hint: 'Ziehen Sie den Regler', load: 'Belastung', unit: 'bpm' },
       book: { t: 'Kommen Sie zum Probetraining', d: 'Wählen Sie Tag und Uhrzeit. Das erste Training ist kostenlos, Kleidung und Handtuch stellen wir.', go: 'Platz sichern' },
     },
     realty: {
@@ -135,6 +138,7 @@ export default {
       stats: ['Stylisten im Team', 'Jahre am selben Ort', 'Durchschnittsbewertung'],
       act: 'Termin',
       done: 'Gebucht',
+      play: { hint: 'Bewegen Sie den Spiegel' },
       book: { t: 'Tag und Uhrzeit wählen', d: 'Wählen Sie einen passenden Tag und eine Uhrzeit. Wir bestätigen den Termin per Nachricht.', go: 'Termin buchen' },
     },
     auto: {
@@ -142,6 +146,7 @@ export default {
       stats: ['Jahre Erfahrung', 'Arbeitsplätze in der Halle', 'Monate Garantie'],
       act: 'Termin',
       done: 'Gebucht',
+      play: { hint: 'Gedrückt halten – Gas geben', unit: 'U/min' },
       book: { t: 'Melden Sie Ihr Auto an', d: 'Wählen Sie Tag und Uhrzeit. Der Serviceberater ruft zurück und klärt die Details.', go: 'Servicetermin buchen' },
     },
     school: {
@@ -149,6 +154,7 @@ export default {
       stats: ['Personen pro Gruppe', 'Wochen bis zum ersten Projekt', 'erste Stunde'],
       act: 'Wählen',
       done: 'Gewählt',
+      play: { hint: 'Karte wischen: nach rechts wählen, nach links weiter', skip: 'Weiter' },
       book: { t: 'Zur Probestunde anmelden', d: 'Wählen Sie Tag und Uhrzeit. Wir schicken den Link und einen kurzen Einstufungstest.', go: 'Anmelden' },
     },
     hotel: {
@@ -156,6 +162,7 @@ export default {
       stats: ['Zimmer', 'Meter zum Meer', 'Frühstück bis'],
       act: 'Wählen',
       done: 'Gewählt',
+      play: { hint: 'Ziehen Sie die Sonne', times: ['Morgen', 'Tag', 'Abend', 'Nacht'] },
       book: { t: 'Zimmer buchen', d: 'Wählen Sie den Anreisetag und die Zahl der Gäste. Die Bestätigung kommt innerhalb einer Stunde per E-Mail.', go: 'Jetzt buchen' },
     },
   },
@@ -324,7 +331,7 @@ export default {
     multi: 'mehrere möglich',
     unsure: 'Weiß ich noch nicht',
     other: 'Anderes',
-    when: ['Dringend, in zwei Wochen', 'Innerhalb eines Monats', 'Keine Eile'],
+    when: ['Dringend, in einer Woche', 'In zwei Wochen', 'Innerhalb eines Monats', 'Keine Eile'],
     hello: 'Guten Tag!',
     what: 'Ich brauche: {v}.',
     biz: 'Unternehmen: {v}.',

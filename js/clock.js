@@ -43,9 +43,14 @@ function probeFrame(now) {
   base = Math.max(1, Math.round(1000 / ms / 66)); // 165 Гц → 3 (55 к/с), 144 → 2 (72), 120 → 2 (60), до 90 Гц → 1
   if (!applyDiv() && changed && div > 1) { applySteps(); regroup(); }
 }
-let base = 1, extra = 0, interval = 16.7;
+let base = 1, extra = 0, interval = 16.7, eco = false;
+/**
+ * Экономный режим — для браузера без аппаратного ускорения (облегчённый режим сайта). Там каждый изменившийся кадр
+ * собирает процессор, поэтому фон обновляется около 30 раз в секунду на любом экране, в том числе на обычном 60 Гц.
+ */
+export function economy(on = true) { if (eco !== on) { eco = on; applyDiv(); } }
 function applyDiv() {
-  const next = base + extra;
+  const next = Math.max(base + extra, eco ? Math.round(1000 / interval / 30) : 1);
   if (next === div) return false;
   div = next;
   if (div < 2) release(); else { applySteps(); regroup(); }
@@ -135,15 +140,18 @@ export function adopt(root) {
   return tagged;
 }
 
-/** Число ступеней на цикл: чтобы значение менялось раз в div кадров экрана. */
+/** Число ступеней на цикл: чтобы значение менялось раз в div кадров экрана. Учитывает скорость воспроизведения анимации. */
+const rateOf = (a) => Math.abs(a.playbackRate) || 1;
 function applySteps() {
   const len = interval * div;
   for (const [a, g] of gov) {
-    const n = Math.max(1, Math.round(g.dur / len));
+    const n = Math.max(1, Math.round(g.dur / (len * rateOf(a))));
     if (n === g.n) continue;
     try { a.effect.updateTiming({ easing: `steps(${n})` }); g.n = n; } catch { gov.delete(a); }
   }
 }
+/** Скрипт поменял скорость анимации (updatePlaybackRate): пересчитать ступени и заново расставить их по кадрам. */
+export function retime() { if (div > 1 && gov.size) { applySteps(); alignSoon(); } }
 
 function release() {
   for (const a of gov.keys()) { try { a.effect.updateTiming({ easing: 'linear' }); } catch {} }
@@ -163,7 +171,7 @@ function align() {
     const ct = a.currentTime;
     if (typeof ct !== 'number') continue;
     const sl = g.dur / g.n;
-    const wait = (((g.phase - 1 + div) % div) + 0.5) * interval; // сколько должно оставаться до следующей ступени
+    const wait = (((g.phase - 1 + div) % div) + 0.5) * interval * rateOf(a); // сколько должно оставаться до следующей ступени (во времени анимации)
     const passed = (((ct - g.delay) % sl) + sl) % sl;            // сколько прошло с предыдущей
     let shift = (((sl - wait - passed) % sl) + sl) % sl;
     if (shift > sl / 2) shift -= sl;

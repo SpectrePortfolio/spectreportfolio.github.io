@@ -165,11 +165,21 @@ const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
 
 // Пробуем WebGL; если браузер его не даёт (выключено аппаратное ускорение, старый драйвер),
 // те же частицы рисуются обычным 2D-холстом, только их меньше.
+// Когда аппаратного ускорения нет, браузер всё равно может выдать WebGL — программный, на процессоре (SwiftShader).
+// Он в разы тяжелее запасного 2D-режима (замер 2026-11-17, Chrome без ускорения: главная 75 кадров в секунду против 113,
+// магазин 91 против 165), поэтому такой WebGL не берём: failIfMajorPerformanceCaveat и проверка названия видеокарты.
+const SOFT_GL = /swiftshader|llvmpipe|software|basic render/i;
 function getGL(canvas) {
   if (/[?&]gl=0\b/.test(location.search)) return null; // ?gl=0 — принудительно проверить запасной режим
-  const opts = { alpha: true, premultipliedAlpha: true, antialias: false };
+  const opts = { alpha: true, premultipliedAlpha: true, antialias: false, failIfMajorPerformanceCaveat: true };
   for (const name of ['webgl', 'experimental-webgl']) {
-    try { const gl = canvas.getContext(name, opts); if (gl) return gl; } catch {}
+    try {
+      const gl = canvas.getContext(name, opts);
+      if (!gl) continue;
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      if (ext && SOFT_GL.test(String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)))) { gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+      return gl;
+    } catch {}
   }
   return null;
 }
@@ -389,13 +399,13 @@ export function createSpectre(canvas) {
     wake();
   }
 
-  let flip = false, off = null;
+  let drawnAt = 0, off = null;
   const SLOW = gl ? 30 : 46;
   const stop = () => { running = false; if (off) { off(); off = null; } };
   // Кадры приходят из общего метронома (js/clock.js): на экранах 120+ Гц частицы рисуются не в каждом кадре.
   function frame(now, tick) {
     if (!running || !tick) return;
-    if (!gl && (flip = !flip)) return; // без WebGL рисуем через раз: около 30 кадров в секунду
+    if (!gl) { if (now - drawnAt < 27) return; drawnAt = now; } // без WebGL рисуем реже: около 30 кадров в секунду
     const raw = now - last;
     const dt = Math.min(raw / 1000, 0.05); last = now;
     if (raw > SLOW && raw < 400) { if (++slow > 24 && drawN > MIN_N) { drawN = Math.max(MIN_N, Math.round(drawN * 0.72)); slow = 0; quick = 0; } }

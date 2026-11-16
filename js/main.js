@@ -2,8 +2,9 @@ import { createSpectre } from './spectre.js';
 import { DEMOS, ORDER, CASES, loadFonts, loadAllFonts, warmHero } from './demos.js';
 import { demoHTML, demoNeighbours } from './demo.js';
 import { initRail } from './rail.js';
+import { initPlay } from './play.js';
 import { WORKS, SERVICE_INDEX, worksGrid } from './works.js';
-import { adopt, onRate, clockInfo, regroupSoon, hush } from './clock.js';
+import { adopt, onRate, clockInfo, regroupSoon, hush, economy } from './clock.js';
 
 const TG = 'https://t.me/hovatsavsem';
 const REVIEWS = 'https://t.me/specreview';
@@ -25,7 +26,7 @@ const fx = spectre || { morph() {}, palette() {}, place() {}, alpha() {}, burst(
 // Отключает размытия, наклоны, параллакс и уменьшает число частиц — см. блок .lite в css/fx.css.
 const rootEl = document.documentElement;
 const isLite = () => rootEl.classList.contains('lite');
-const goLite = () => { if (!isLite()) { rootEl.classList.add('lite'); spectre?.lighten(); } };
+const goLite = () => { if (!isLite()) { rootEl.classList.add('lite'); spectre?.lighten(); economy(); } };
 if (!spectre || spectre.mode !== 'webgl') goLite();
 {
   let n = 0, slow = 0, prev = performance.now();
@@ -326,19 +327,21 @@ ${dock(L.works.back, `#/w/${prev}`, s.t, `#/w/${next}`, L.hero.cta2)}`;
 
 function renderPage(key) {
   rail?.destroy(); rail = null;
+  stopPlay?.(); stopPlay = null;
   if (isWork(key)) renderWork(key.slice(2)); else renderDemo(key);
   watch(page);
   initLook(page);
   initTimer(page);
+  if (!isWork(key)) stopPlay = initPlay(page, { onPick: updateCount });
   if (key === 'shop') rail = initRail(page, { names: L.more.shop.rail, lite: isLite(), onAdd: () => { extraAdds++; updateCount(); } });
 }
 
 // Счётчик в шапке демо-сайта: отмеченные позиции каталога плюс вещи, добавленные с рейла.
-let rail = null, extraAdds = 0;
+let rail = null, extraAdds = 0, stopPlay = null;
 function updateCount() {
   const cnt = $('.d-cnt', page);
   if (!cnt) return;
-  const n = page.querySelectorAll('.d-item.is-on, .lkc-info.is-on, .pan-it.is-on, .hl-row.is-on').length + extraAdds;
+  const n = page.querySelectorAll('.d-item.is-on, .lkc-info.is-on, .pan-it.is-on, .hl-row.is-on, .deck-card.is-on').length + extraAdds;
   cnt.querySelector('b').textContent = n;
   cnt.classList.toggle('has', n > 0);
   cnt.classList.remove('bump'); void cnt.offsetWidth; cnt.classList.add('bump');
@@ -346,7 +349,8 @@ function updateCount() {
 
 // Карусели каталога. Обычная: центральная карточка в фокусе, соседние уменьшены и размыты.
 // Круговая (ресторан): тарелки стоят по кругу, активная наверху, круг проворачивается.
-// Листаются сами, стрелками, свайпом или нажатием на карточку.
+// Листаются сами, стрелками, свайпом или нажатием на карточку. Круг ресторана ещё и крутится рукой: его берут за любое
+// место и ведут по дуге, после отпускания он докручивается по инерции и встаёт на ближайшее блюдо.
 let lookTimer = null;
 function initLook(root) {
   clearInterval(lookTimer);
@@ -360,6 +364,9 @@ function initLook(root) {
     let d = (((i - cur) % n) + n) % n;
     if (d > n / 2) d -= n;
     turn += d; cur = (((cur + d) % n) + n) % n;
+    paint();
+  };
+  const paint = () => {
     if (orbit) {
       el.style.setProperty('--orb', `${(-turn * 360) / n}deg`);
       its.forEach((it, k) => it.classList.toggle('on', k === cur));
@@ -384,6 +391,7 @@ function initLook(root) {
     if (Date.now() - touched > 7000 && !document.hidden) set(cur + 1);
   }, 3600);
   const stage = el.querySelector('.lkc-stage, .orb-ring');
+  if (orbit) { spinByHand(el, stage, n, () => turn, (v) => { touched = Date.now(); turn = v; cur = ((turn % n) + n) % n; paint(); }); return; }
   let sx = null;
   stage.addEventListener('pointerdown', (e) => { sx = e.clientX; });
   stage.addEventListener('pointerup', (e) => {
@@ -391,6 +399,49 @@ function initLook(root) {
     const dx = e.clientX - sx; sx = null;
     if (Math.abs(dx) > 36) { el._swiped = Date.now(); el._go(dx < 0 ? 1 : -1); }
   });
+}
+
+// Круг тарелок в руке. Угол считается от центра круга до указателя; пока круг ведут, переменная --orb пишется напрямую,
+// без перехода (класс .spin), и тарелки в это время лежат в отдельных слоях — двигает их видеокарта.
+function spinByHand(el, ring, n, getTurn, setTurn) {
+  const step = 360 / n;
+  let g = null;
+  const angle = (e) => (Math.atan2(e.clientY - g.cy, e.clientX - g.cx) * 180) / Math.PI;
+  ring.addEventListener('pointerdown', (e) => {
+    if (e.button) return;
+    const r = el.querySelector('.orb-ring').getBoundingClientRect();
+    g = { cx: r.left + r.width / 2, cy: r.top + r.height / 2, base: -getTurn() * step, sum: 0, v: 0, t: e.timeStamp, id: e.pointerId, moved: false };
+    g.a = angle(e);
+  });
+  ring.addEventListener('pointermove', (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    const a = angle(e);
+    let d = a - g.a;
+    if (d > 180) d -= 360; else if (d < -180) d += 360;
+    g.a = a; g.sum += d;
+    if (!g.moved) {
+      if (Math.abs(g.sum) < 3) return; // лёгкое движение — это нажатие на тарелку, а не вращение
+      g.moved = true;
+      el.classList.add('spin', 'used');
+      try { ring.setPointerCapture(e.pointerId); } catch {}
+    }
+    const dt = Math.max(1, e.timeStamp - g.t); g.t = e.timeStamp;
+    g.v = g.v * 0.7 + (d / dt) * 0.3; // градусов в миллисекунду, сглажено
+    el.style.setProperty('--orb', `${(g.base + g.sum).toFixed(2)}deg`);
+  });
+  const end = (e) => {
+    if (!g || (e.pointerId !== undefined && e.pointerId !== g.id)) return;
+    const s = g; g = null;
+    if (!s.moved) return;
+    el._swiped = Date.now();
+    const still = e.timeStamp - s.t > 90 ? 0 : s.v; // подержали на месте перед отпусканием — инерции нет
+    const target = s.base + s.sum + Math.max(-140, Math.min(140, still * 260));
+    void el.offsetWidth;
+    el.classList.remove('spin');
+    setTurn(-Math.round(target / step));
+  };
+  ring.addEventListener('pointerup', end);
+  ring.addEventListener('pointercancel', end);
 }
 
 // Слои с параллаксом (data-par) и свет в зале ресторана идут за курсором; значения уходят в CSS-переменные.
@@ -585,7 +636,7 @@ function apply(key) {
   hush(4500); // страница собирается заново — пропуски кадров в эти секунды не признак перегрузки
   if (!current) homeY = scrollY;
   extraAdds = 0;
-  if (!key) { rail?.destroy(); rail = null; }
+  if (!key) { rail?.destroy(); rail = null; stopPlay?.(); stopPlay = null; }
   current = key; preview = null;
   const d = key && !isWork(key) ? DEMOS[key] : null;
   site.hidden = !!key; page.hidden = !key;
@@ -690,7 +741,7 @@ document.addEventListener('click', (e) => {
   // «живые» кнопки демо-сайтов: корзина, выбор времени, отправка формы
   const add = e.target.closest('[data-add]');
   if (add) {
-    add.closest('.d-item, .lkc-info, .pan-it, .hl-row').classList.toggle('is-on');
+    add.closest('.d-item, .lkc-info, .pan-it, .hl-row, .deck-card').classList.toggle('is-on');
     updateCount();
     return;
   }

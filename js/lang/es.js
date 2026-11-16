@@ -96,12 +96,14 @@ export default {
       about: { t: 'Una cocina alrededor del fuego', d: 'Cocinamos con brasas y leña, sin prisa. La carta cambia cada seis semanas con la temporada y el producto llega de granjas cercanas.' },
       stats: ['vinos en la carta', 'plazas en la sala', 'semanas por carta'],
       act: 'Añadir', done: 'Añadido',
+      play: { hint: 'Gira el círculo' },
       book: { t: 'Reserva una mesa', d: 'Elige día, hora y número de comensales. Confirmamos en menos de una hora.', go: 'Reservar' },
     },
     coffee: {
       about: { t: 'Tostado por nosotros, cada semana', d: 'Compramos café verde a pequeñas fincas y lo tostamos en lotes pequeños aquí mismo. Por eso nuestro café siempre es fresco, nunca tiene más de diez días.' },
       stats: ['hora de apertura', 'días del tueste a la taza', 'granos para elegir'],
       act: 'Pedir', done: 'Pedido',
+      play: { hint: 'Arrastra el vaso o un grano' },
       book: { t: 'Pide con antelación', d: 'Elige hora, tamaño y cantidad. Tu café te estará esperando en la barra.', go: 'Hacer el pedido' },
     },
     dental: {
@@ -122,6 +124,7 @@ export default {
       about: { t: 'Grupos pequeños, entrega total', d: 'No más de doce personas por grupo, así el entrenador ve a todos. Ajustamos la carga a tu nivel y anotamos el progreso después de cada sesión.' },
       stats: ['personas por grupo', 'minutos por sesión', 'clases a la semana'],
       act: 'Apuntarme', done: 'Apuntado',
+      play: { hint: 'Arrastra el control', load: 'Intensidad', unit: 'ppm' },
       book: { t: 'Ven a una clase de prueba', d: 'Elige día y hora. La primera clase es gratis y te dejamos ropa y toalla.', go: 'Reservar plaza' },
     },
     realty: {
@@ -135,6 +138,7 @@ export default {
       stats: ['estilistas en el equipo', 'años en el mismo lugar', 'valoración media'],
       act: 'Reservar',
       done: 'Reservado',
+      play: { hint: 'Mueve el espejo' },
       book: { t: 'Elige día y hora', d: 'Elige el día y la hora que te vengan bien. Confirmamos la cita por mensaje.', go: 'Reservar cita' },
     },
     auto: {
@@ -142,6 +146,7 @@ export default {
       stats: ['años reparando', 'puestos en el taller', 'meses de garantía'],
       act: 'Reservar',
       done: 'Reservado',
+      play: { hint: 'Mantén pulsado para acelerar', unit: 'rpm' },
       book: { t: 'Pide cita para tu coche', d: 'Elige día y hora. El asesor de servicio te llamará para concretar los detalles.', go: 'Reservar servicio' },
     },
     school: {
@@ -149,6 +154,7 @@ export default {
       stats: ['personas por grupo', 'semanas hasta el primer proyecto', 'primera clase'],
       act: 'Elegir',
       done: 'Elegido',
+      play: { hint: 'Desliza la tarjeta: a la derecha para elegir, a la izquierda para pasar', skip: 'Siguiente' },
       book: { t: 'Apúntate a una clase de prueba', d: 'Elige día y hora. Te enviamos el enlace y una breve prueba de nivel.', go: 'Apuntarme' },
     },
     hotel: {
@@ -156,6 +162,7 @@ export default {
       stats: ['habitaciones', 'metros hasta el mar', 'desayuno hasta las'],
       act: 'Elegir',
       done: 'Elegido',
+      play: { hint: 'Arrastra el sol', times: ['Amanecer', 'Día', 'Atardecer', 'Noche'] },
       book: { t: 'Reserva tu habitación', d: 'Elige el día de llegada y el número de huéspedes. La confirmación llega por correo en menos de una hora.', go: 'Reservar' },
     },
   },
@@ -324,7 +331,7 @@ export default {
     multi: 'puedes elegir varios',
     unsure: 'Aún no lo sé',
     other: 'Otro',
-    when: ['Urgente, en dos semanas', 'En un mes', 'Sin prisa'],
+    when: ['Urgente, en una semana', 'En dos semanas', 'En un mes', 'Sin prisa'],
     hello: '¡Hola!',
     what: 'Necesito: {v}.',
     biz: 'Negocio: {v}.',
