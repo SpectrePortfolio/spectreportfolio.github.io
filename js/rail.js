@@ -2,6 +2,7 @@
 // въезжают при загрузке, качаются при перетаскивании, опускаются при наведении; по клику вещь открывается крупно
 // с размерами, а после «в корзину» улетает в иконку.
 import { DEMOS } from './demos.js';
+import { subscribe } from './clock.js';
 
 // a — пропорции фото (ширина/высота), w — ширина относительно шага рейла, p — цена.
 // Порядок совпадает с названиями в lang-файлах (more.shop.rail).
@@ -71,10 +72,16 @@ export function initRail(page, { names, onAdd, lite }) {
   measure();
   off = -W * 1.05; vel = W * 2.3; // вещи въезжают слева и раскачиваются
 
-  function frame(now) {
-    if (!el.isConnected) { running = false; return; }
+  let off2 = null, calm = false, skip = false;
+  const stop = () => { running = false; if (off2) { off2(); off2 = null; } };
+  // Кадры даёт общий метроном (js/clock.js). Пока вещи только медленно дрейфуют (14 px в секунду), рейл обновляется
+  // в каждом втором «фоновом» кадре: шаг меньше пикселя, а площадь перерисовки — полэкрана. Когда рейл тянут, качают
+  // или наводят курсор — в каждом кадре экрана.
+  function frame(now, tick) {
+    if (!running || (calm && (!tick || (skip = !skip)))) return;
+    if (!el.isConnected) { stop(); return; }
     const r = el.getBoundingClientRect();
-    if (r.bottom < 0 || r.top > innerHeight || document.hidden) { running = false; return; }
+    if (r.bottom < 0 || r.top > innerHeight || document.hidden) { stop(); return; }
     const dt = Math.min((now - last) / 1000, 0.04); last = now;
     if (!drag) {
       off += vel * dt; vel *= Math.exp(-dt * 2.2);
@@ -92,9 +99,10 @@ export function initRail(page, { names, onAdd, lite }) {
       gms[i].style.transform = `translate3d(${x.toFixed(1)}px,${(y + lift[i] * 22).toFixed(1)}px,0) rotate(${ang[i].toFixed(4)}rad) scale(${(1 + lift[i] * 0.07).toFixed(3)})`;
     }
     bar.style.transform = `translateX(${((((-off / total) % 1) + 1) % 1) * 300}%)`;
-    if (busy || !lite) requestAnimationFrame(frame); else running = false;
+    calm = !busy;
+    if (!busy && lite) stop();
   }
-  const wake = () => { if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); } };
+  const wake = () => { calm = false; if (!running) { running = true; last = performance.now(); off2 = subscribe(frame, el); } };
 
   const show = (i) => {
     hover = i;
@@ -164,5 +172,5 @@ export function initRail(page, { names, onAdd, lite }) {
   addEventListener('keydown', (e) => { if (e.key === 'Escape') closeView(); }, { signal: sig });
 
   wake();
-  return { wake, destroy: () => ac.abort() };
+  return { wake, destroy: () => { ac.abort(); stop(); } };
 }

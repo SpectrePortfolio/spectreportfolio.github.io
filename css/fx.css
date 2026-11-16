@@ -338,3 +338,38 @@
 /* шторка «до/после» качается сама только первые два раза, дальше ждёт курсор */
 .d-ba { animation-iteration-count: 2; }
 .lite .d .fl-bean { filter: none; }
+
+/* ====================================================================================================
+   Слои и перерисовка (замеры 2026-11-17: Edge, Intel UHD, экран 2560×1440 @165 Гц)
+   ==================================================================================================== */
+/* Фото первого экрана больше не отдельный слой: из-за него браузер выносил в слои и затемнение, и текст поверх —
+   в ресторане и фитнесе набиралось шесть полноэкранных слоёв. Параллакс остался у фото ниже по странице. */
+.d-hero-media [data-px] { transform: none; will-change: auto; }
+/* Полоска под рейлом двигается каждый кадр: без своего слоя она заставляла перерисовывать слой всей страницы. */
+.rail-bar i { will-change: transform; }
+/* Пульсирующие точки: кольцо растёт за счёт transform/opacity. Раньше анимировалась тень (box-shadow), а это перерисовка в каждом кадре. */
+.d-eyebrow i, .fl-tag i, .zm-hot i, .d-timer i { position: relative; flex: none; animation: none; }
+.d-eyebrow i::after, .fl-tag i::after, .zm-hot i::after, .d-timer i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: var(--acc); animation: pulse 2s infinite; }
+.d-timer i::after { animation-duration: 1.2s; }
+@keyframes pulse { from { transform: scale(1); opacity: .8; } to { transform: scale(3.7); opacity: 0; } }
+.lite .d-eyebrow i::after, .lite .fl-tag i::after, .lite .zm-hot i::after, .lite .d-timer i::after { animation: none; opacity: 0; }
+/* Кофейня: тени и размытие парящих предметов запечены в картинки. Фильтры (drop-shadow, blur, mask) браузер пересчитывал
+   в каждом кадре, пока предметы покачиваются. У картинок появились прозрачные поля, поэтому ширины умножены на их долю. */
+.fl-cup, .d .fl-croissant, .d .fl-glass, .d .fl-bean.fl-blur1, .d .fl-bean.fl-blur2 { filter: none; }
+.d .fl-cup img { width: 150%; max-width: none; margin: -25% 0 -25% -25%; }
+.d .fl-croissant { -webkit-mask-image: none; mask-image: none; }
+.d .fl-glass { width: calc(clamp(90px, 11vw, 190px) * 1.52); }
+.d .fl-bean.fl-blur1 { opacity: 1; width: calc(clamp(46px, 5.4vw, 96px) * 1.16); }
+.d .fl-bean.fl-blur2 { opacity: 1; width: calc(clamp(46px, 5.4vw, 96px) * 1.38); }
+/* Иллюстрации услуг: вместо фильтра drop-shadow, который пересчитывался при каждом покачивании шести иллюстраций, —
+   мягкое пятно света под рисунком (обычный градиент, рисуется один раз). */
+.s-art { position: relative; isolation: isolate; filter: none; --glow: rgba(36, 71, 255, .5); }
+.s-art::before { content: ''; position: absolute; left: 2%; right: 2%; top: 46%; bottom: -24%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, var(--glow), transparent); pointer-events: none; }
+.s-blue .s-art { filter: none; --glow: rgba(3, 7, 41, .5); }
+.s-white .s-art { filter: none; --glow: rgba(36, 71, 255, .3); }
+/* Отзывы: края лент гаснут за счёт градиента поверх, а не маски. С маской каждая лента сначала рисовалась
+   в отдельную текстуру и только потом на экран — и так в каждом кадре, пока ленты едут. */
+.r-line { position: relative; -webkit-mask-image: none; mask-image: none; }
+.r-line::before, .r-line::after { content: ''; position: absolute; top: 0; bottom: 0; width: 9%; z-index: 1; pointer-events: none; }
+.r-line::before { left: 0; background: linear-gradient(90deg, #000, transparent); }
+.r-line::after { right: 0; background: linear-gradient(270deg, #000, transparent); }

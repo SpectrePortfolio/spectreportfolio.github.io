@@ -3,6 +3,7 @@ import { DEMOS, ORDER, loadFonts, loadAllFonts, warmHero } from './demos.js';
 import { demoHTML, demoNeighbours } from './demo.js';
 import { initRail } from './rail.js';
 import { WORKS, SERVICE_INDEX, worksGrid } from './works.js';
+import { adopt, onRate, clockInfo, regroupSoon, hush } from './clock.js';
 
 const TG = 'https://t.me/hovatsavsem';
 const REVIEWS = 'https://t.me/specreview';
@@ -397,13 +398,23 @@ addEventListener('pointercancel', () => { baEl = null; });
 // Проверяем положение сами в обработчике прокрутки: так блоки гарантированно проявятся,
 // даже если браузер придерживает IntersectionObserver.
 let pending = [], motions = [], pxEls = [], spEls = [];
+const MOTION = '.mo, [data-live], [data-gov]';
 function watch(root) {
   pending = pending.filter((el) => el.isConnected).concat([...root.querySelectorAll('.rv, .rvw, .rvi')]);
-  motions = [...document.querySelectorAll('.mo, [data-live]')];
-  pxEls = [...document.querySelectorAll('[data-px]')];
+  adopt(document.body);
+  motions = [...document.querySelectorAll(MOTION)];
+  pxEls = [...document.querySelectorAll('[data-px]')].filter((el) => !el.closest('.d-hero-media')); // фото первого экрана стоит на месте, см. css/fx.css
   spEls = [...document.querySelectorAll('[data-sp]')];
   reveal();
 }
+// Зацикленные CSS-анимации на экранах 120+ Гц ведёт общий метроном (js/clock.js). Анимации появляются и позже —
+// когда блок выходит на экран или меняется страница, — поэтому после таких событий список обновляется.
+let adoptT = 0;
+function adoptSoon() {
+  clearTimeout(adoptT);
+  adoptT = setTimeout(() => { if (adopt(document.body)) { motions = [...document.querySelectorAll(MOTION)]; reveal(); } }, 140);
+}
+onRate(adoptSoon);
 // Цена в карточке «влёта» досчитывается по мере прокрутки, сохраняя формат строки («348 000 €», «€348,000»).
 function countPrice(text, k) {
   const m = text.match(/\d[\d\s.,\u00a0]*\d/);
@@ -466,7 +477,14 @@ function reveal() {
     if (r.bottom < 0 || r.top > vh || !r.height) return;
     pxEls[i].style.setProperty('--py', `${((r.top + r.height / 2 - vh / 2) * -pxEls[i].dataset.px).toFixed(1)}px`);
   });
-  motions.forEach((m, i) => m.classList.toggle('play', mr[i].height > 0 && mr[i].top < vh && mr[i].bottom > 0));
+  let changed = false;
+  motions.forEach((m, i) => {
+    const on = mr[i].height > 0 && mr[i].top < vh && mr[i].bottom > 0;
+    if (on === m.classList.contains('play')) return;
+    m.classList.toggle('play', on);
+    changed = true;
+  });
+  if (changed) adoptSoon();
 }
 
 // ---------- переходы ----------
@@ -479,6 +497,7 @@ function routeKey() {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function apply(key) {
+  hush(4500); // страница собирается заново — пропуски кадров в эти секунды не признак перегрузки
   if (!current) homeY = scrollY;
   extraAdds = 0;
   if (!key) { rail?.destroy(); rail = null; }
@@ -493,11 +512,13 @@ function apply(key) {
   fx.morph(key ? key.replace('w:', '') : 'spectre');
   if (d) fx.palette(...d.dots, d.add, true); else fx.palette(...BLUE, true, true);
   setTitle(); layout(true);
+  adoptSoon();
 }
 
 async function go(key) {
   if (busy || key === current) return;
   busy = true;
+  hush(6000);
   const d = key && !isWork(key) ? DEMOS[key] : null;
   if (d) loadFonts(key);
   if (reduced) { apply(key); busy = false; return; }
@@ -537,6 +558,7 @@ function layout(instant) {
   const ms = innerWidth / vh < 0.75 ? 1.25 : 0.6; // размер объекта на узких экранах
   // высоту страницы перемеряем изредка: каждый такой замер заставляет браузер пересчитывать вёрстку
   if (instant || !docH || layoutN++ % 40 === 0) docH = document.documentElement.scrollHeight;
+  if (layoutN % 30 === 0) regroupSoon(); // при прокрутке на экран выходят другие анимации — группы для метронома пересобираются
   const sec = current ? null : $('.concepts', site);
   const secR = sec ? sec.getBoundingClientRect() : null;
   reveal();
@@ -658,7 +680,8 @@ if (/[?&]debug\b/.test(location.search)) {
     n++; worst = Math.max(worst, now - prev); prev = now;
     if (now - t0 >= 1000) {
       const i = spectre?.info() || {};
-      box.textContent = `кадров в секунду: ${Math.round((n * 1000) / (now - t0))}\nхудший кадр: ${Math.round(worst)} мс\nчастицы: ${i.mode || 'нет'} ${i.count || ''}\nрежим: ${isLite() ? 'облегчённый' : 'полный'}\nвидеокарта: ${i.gpu || 'WebGL недоступен'}\nэкран: ${innerWidth}×${innerHeight} @${devicePixelRatio}\nанимаций сейчас: ${document.getAnimations().filter((a) => a.playState === 'running').length}`;
+      const c = clockInfo();
+      box.textContent = `кадров в секунду: ${Math.round((n * 1000) / (now - t0))}\nхудший кадр: ${Math.round(worst)} мс\nчастицы: ${i.mode || 'нет'} ${i.count || ''}\nрежим: ${isLite() ? 'облегчённый' : 'полный'}\nвидеокарта: ${i.gpu || 'WebGL недоступен'}\nэкран: ${innerWidth}×${innerHeight} @${devicePixelRatio}\nфон обновляется: ${c.div > 1 ? `в каждом ${c.div}-м кадре` : 'в каждом кадре'}, CSS-анимаций под управлением: ${c.css}, групп: ${c.groups}`;
       n = 0; t0 = now; worst = 0;
     }
     requestAnimationFrame(tick);
@@ -668,6 +691,7 @@ if (/[?&]debug\b/.test(location.search)) {
 
 // ---------- старт ----------
 (async () => {
+  hush(5000);
   await setLang(pickLang());
   const key = routeKey();
   if (key) { if (!isWork(key)) loadFonts(key); apply(key); homeY = 0; }

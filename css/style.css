@@ -25,7 +25,9 @@ svg { display: block; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--ice); outline-offset: 3px; border-radius: 6px; }
 
-#gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+/* Холст лежит поверх содержимого. Под ним браузеру приходилось держать всю страницу отдельным слоем
+   и смешивать три полноэкранных слоя в каждом кадре; сверху страница остаётся одним слоем. */
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
 #site, #demo { position: relative; z-index: 1; }
 #veil { position: fixed; inset: 0; z-index: 50; will-change: clip-path, opacity; }
 

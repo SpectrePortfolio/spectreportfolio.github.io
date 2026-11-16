@@ -63,16 +63,17 @@ export function demoHTML(id, L, { words, btn, TG }) {
   if (d.hero === 'rail') {
     hero = `<div class="d-hero-copy"><p class="d-eyebrow"><i></i>${t.note}</p><h1 class="rvw">${words(t.title)}</h1></div>${railHTML(id, L, ICO)}`;
   } else if (d.hero === 'float') {
-    // парящий стакан и зёрна: слои с разной глубиной идут за курсором и разлетаются при прокрутке
+    // парящий стакан и зёрна: слои с разной глубиной идут за курсором и разлетаются при прокрутке.
+    // Тени и размытие запечены в картинки (*-s.webp, bean*-b1/-b2.webp) с прозрачными полями — размеры учтены в css/fx.css.
     const beans = [[9, 30, .5, 14, -20, 1], [20, 72, .9, 34, 35, 0], [31, 16, .42, 10, 60, 1], [70, 14, .6, 18, -40, 0], [84, 34, .46, 12, 15, 1], [90, 70, 1.1, 44, -10, 2], [62, 82, .5, 16, 80, 0], [38, 84, .7, 26, -55, 0], [4, 56, 1.25, 52, 25, 2]];
     const obj = (cls, src, x, y, s, dep, r, extra = '') => `<img class="fl-o ${cls}" src="img/cut/${src}.webp" alt="" draggable="false" style="--x:${x}%;--y:${y}%;--s:${s};--d:${dep};--r:${r}deg" ${extra}>`;
     hero = `<div class="d-hero-copy fl-copy"><p class="d-eyebrow"><i></i>${t.note}</p><h1 class="rvw">${words(t.title)}</h1></div>
     <div class="fl-scene" aria-hidden="true">
       <span class="fl-glow"></span>
-      ${beans.map(([x, y, sc, dep, r, blur], i) => obj(`fl-bean${blur ? ` fl-blur${blur}` : ''}`, `bean${i % 6}`, x, y, sc, dep, r)).join('')}
-      ${obj('fl-croissant', 'croissant', 15, 44, 1, 26, -14)}
-      ${obj('fl-glass', 'glass', 82, 52, 1, 30, 9)}
-      <div class="fl-o fl-cup" style="--x:50%;--y:60%;--s:1;--d:20;--r:0deg"><img src="img/cut/cup.webp" alt="" draggable="false" fetchpriority="high"><span class="fl-cup-mk">${mark(id)}</span></div>
+      ${beans.map(([x, y, sc, dep, r, blur], i) => obj(`fl-bean${blur ? ` fl-blur${blur}` : ''}`, `bean${i % 6}${blur ? `-b${blur}` : ''}`, x, y, sc, dep, r)).join('')}
+      ${obj('fl-croissant', 'croissant-s', 15, 44, 1, 26, -14)}
+      ${obj('fl-glass', 'glass-s', 82, 52, 1, 30, 9)}
+      <div class="fl-o fl-cup" style="--x:50%;--y:60%;--s:1;--d:20;--r:0deg"><img src="img/cut/cup-s.webp" alt="" draggable="false" fetchpriority="high"><span class="fl-cup-mk">${mark(id)}</span></div>
     </div>
     <a class="fl-tag" href="#/${id}" data-to="d-list"><i></i><b>${t.items[0].n}</b><em>${price(t.items[0].p)}</em></a>
     <div class="fl-foot"><p class="d-sub">${t.sub}</p><div class="d-actions"><a class="d-btn" href="#/${id}" data-to="d-book"><span>${t.cta}</span>${ICO.arrow}</a><a class="d-link" href="#/${id}" data-to="d-list">${t.listTitle}</a></div></div>`;

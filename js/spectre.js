@@ -1,11 +1,12 @@
 // SPECTRE — облако частиц, которое принимает форму любого бизнеса.
 // Чистый WebGL без библиотек: один draw call, вся анимация в шейдере.
+import { subscribe, regroupSoon } from './clock.js';
 
 const VS = `
 attribute vec3 aFrom, aTo;
 attribute vec4 aRnd;
-uniform float uMix, uTime, uBurst, uScale, uDpr, uSize, uWave;
-uniform vec2 uRes, uMouse, uOffset, uRot;
+uniform float uMix, uTime, uBurst, uScale, uDpr, uSize, uWave, uHw, uFade;
+uniform vec2 uRes, uMouse, uOffset, uRot, uReg;
 varying float vA, vT;
 void main(){
   float m = clamp(uMix * 1.6 - aRnd.x * 0.6, 0.0, 1.0);
@@ -28,9 +29,12 @@ void main(){
   vec2 d = (ndc - uMouse) * vec2(aspect, 1.0);
   float f = 1.0 - smoothstep(0.0, 0.38, length(d));
   ndc += normalize(d + 0.0001) / vec2(aspect, 1.0) * f * 0.13;
+  // uFade гасит пыль к краям полосы вокруг объекта; uReg переводит координаты всего окна в координаты суженного холста
+  float edge = 1.0 - uFade * smoothstep(0.78, 1.0, abs(ndc.x - uOffset.x) / uHw);
+  ndc.x = (ndc.x - uReg.x) / uReg.y;
   gl_Position = vec4(ndc, 0.0, 1.0);
   gl_PointSize = uSize * uDpr * (0.55 + aRnd.x) * 3.2 / z * (1.0 + f * 1.4);
-  vA = 0.35 + 0.65 * aRnd.z;
+  vA = (0.35 + 0.65 * aRnd.z) * edge;
   vT = clamp(aRnd.w + f * 0.6, 0.0, 1.0);
 }`;
 
@@ -227,7 +231,7 @@ export function createSpectre(canvas) {
   if (gl) {
     gl.useProgram(prog);
     U = {};
-    for (const n of ['uMix', 'uTime', 'uBurst', 'uScale', 'uDpr', 'uSize', 'uWave', 'uRes', 'uMouse', 'uOffset', 'uRot', 'uC1', 'uC2', 'uAlpha', 'uAdd']) U[n] = gl.getUniformLocation(prog, n);
+    for (const n of ['uMix', 'uTime', 'uBurst', 'uScale', 'uDpr', 'uSize', 'uWave', 'uRes', 'uMouse', 'uOffset', 'uRot', 'uC1', 'uC2', 'uAlpha', 'uAdd', 'uHw', 'uFade', 'uReg']) U[n] = gl.getUniformLocation(prog, n);
     const mkBuf = (attr, size, data, usage) => {
       const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, usage);
       const loc = gl.getAttribLocation(prog, attr); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
@@ -248,6 +252,8 @@ export function createSpectre(canvas) {
     gl.uniform3fv(U.uC1, S.c1); gl.uniform3fv(U.uC2, S.c2);
     gl.uniform1f(U.uAlpha, S.alpha * (0.55 + 0.45 * (1 - S.add)) + S.alpha * 0.25 * S.add);
     gl.uniform1f(U.uAdd, S.add);
+    gl.uniform1f(U.uHw, band().hw); gl.uniform1f(U.uFade, fadeV);
+    gl.uniform2f(U.uReg, reg ? reg.x0 + reg.x1 - 1 : 0, reg ? reg.x1 - reg.x0 : 1);
     gl.blendFunc(gl.ONE, S.add > 0.5 ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.POINTS, 0, drawN);
@@ -309,19 +315,55 @@ export function createSpectre(canvas) {
     }
   }
 
+  // ---------- полоса вокруг объекта ----------
+  // Видеокарта платит за площадь холста в каждом кадре, а объект занимает меньше половины экрана. Поэтому, когда частицы
+  // стоят на месте (нет разлёта, превращения и переезда), холст сужается до вертикальной полосы вокруг объекта; пыль перед
+  // этим плавно гаснет к её краям. На время любых переходов холст снова становится полноэкранным. Только WebGL, только широкие экраны.
+  let reg = null, calmT = 0, fadeV = 0;
+  function band() {
+    const aspect = W / H, eff = S.scaleT * Math.min(1, aspect * 0.78);
+    const hw = (0.9 * eff + 0.13) / aspect / 0.78; // полуширина полосы в координатах окна (−1…1)
+    return { hw, x0: Math.max(0, (S.offT[0] - hw + 1) / 2), x1: Math.min(1, (S.offT[0] + hw + 1) / 2) };
+  }
+  function sizeCanvas() {
+    const cw = reg ? Math.round((reg.x1 - reg.x0) * W) : W;
+    canvas.width = Math.round(cw * dpr); canvas.height = Math.round(H * dpr);
+    if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  function setRegion(b) {
+    if (b) {
+      const left = Math.round(b.x0 * W), cw = Math.round((b.x1 - b.x0) * W);
+      reg = { x0: left / W, x1: (left + cw) / W };
+      canvas.style.left = `${left}px`; canvas.style.width = `${cw}px`;
+    } else { reg = null; canvas.style.left = ''; canvas.style.width = ''; }
+    sizeCanvas();
+    regroupSoon();
+  }
+  function trackRegion(dt) {
+    const calm = S.mix >= 1 && S.burst < 0.02 && S.burstT < 0.02 && Math.abs(S.off[0] - S.offT[0]) < 0.004 && Math.abs(S.scale - S.scaleT) < 0.004 && W >= 860;
+    if (!calm) { calmT = 0; if (reg) setRegion(null); }
+    else {
+      calmT += dt;
+      if (!reg && calmT > 0.5 && fadeV > 0.985) { const b = band(); if (b.x1 - b.x0 < 0.85) setRegion(b); }
+    }
+    fadeV += ((calm ? 1 : 0) - fadeV) * (1 - Math.exp(-dt * 6));
+  }
+
   function resize() {
     dpr = Math.min(devicePixelRatio || 1, maxDpr);
+    if (reg) { reg = null; canvas.style.left = ''; canvas.style.width = ''; calmT = 0; }
     W = canvas.clientWidth || innerWidth; H = canvas.clientHeight || innerHeight;
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
+    sizeCanvas();
     wake();
   }
 
-  let flip = false;
-  const SLOW = gl ? 26 : 46;
-  function frame(now) {
-    if (!running) return;
-    if (!gl && (flip = !flip)) { requestAnimationFrame(frame); return; } // без WebGL рисуем через кадр: 30 кадров в секунду
+  let flip = false, off = null;
+  const SLOW = gl ? 30 : 46;
+  const stop = () => { running = false; if (off) { off(); off = null; } };
+  // Кадры приходят из общего метронома (js/clock.js): на экранах 120+ Гц частицы рисуются не в каждом кадре.
+  function frame(now, tick) {
+    if (!running || !tick) return;
+    if (!gl && (flip = !flip)) return; // без WebGL рисуем через раз: около 30 кадров в секунду
     const raw = now - last;
     const dt = Math.min(raw / 1000, 0.05); last = now;
     if (raw > SLOW && raw < 400) { if (++slow > 24 && drawN > MIN_N) { drawN = Math.max(MIN_N, Math.round(drawN * 0.72)); slow = 0; quick = 0; } }
@@ -342,28 +384,29 @@ export function createSpectre(canvas) {
     S.rot += (target - S.rot) * (name === 'spectre' ? 0.25 : k * 0.8);
     S.tilt += (-S.my * 0.22 - S.tilt) * k;
 
-    if (gl) drawGL(); else draw2D();
+    if (gl) { trackRegion(dt); drawGL(); } else draw2D();
 
     if (S.alpha < 0.004 && S.alphaT < 0.004) {
-      running = false;
+      stop();
       if (gl) gl.clear(gl.COLOR_BUFFER_BIT); else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); }
-      return;
+      // Пустой холст убираем совсем: даже прозрачный, он остаётся полноэкранным слоем, который видеокарта смешивает в каждом кадре.
+      canvas.style.display = 'none';
     }
-    requestAnimationFrame(frame);
   }
   function wake() {
     if (running || document.hidden) return;
-    running = true; last = performance.now(); requestAnimationFrame(frame);
+    if (canvas.style.display) canvas.style.display = '';
+    running = true; last = performance.now(); off = subscribe(frame, canvas);
   }
 
   addEventListener('resize', resize, { passive: true });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) running = false; else wake(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else wake(); });
   addEventListener('pointermove', (e) => {
     if (e.pointerType === 'touch') return;
     S.mouse[0] = (e.clientX / W) * 2 - 1; S.mouse[1] = -((e.clientY / H) * 2 - 1);
   }, { passive: true });
   document.addEventListener('pointerleave', () => { S.mouse[0] = 9; });
-  if (gl) canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); running = false; });
+  if (gl) canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); stop(); });
   resize();
 
   return {
