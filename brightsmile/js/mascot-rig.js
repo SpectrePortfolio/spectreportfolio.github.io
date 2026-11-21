@@ -24,7 +24,9 @@ const KEYS = ['sq', 'lift', 'hx', 'hy', 'hz', 'bx', 'bz', 'ear'];
 export function buildRig(src, cfg) {
   const H = cfg.height;
   src.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(src);
+  // рост и подошвы считаются по телу; слой-кайма (он чуть шире) в расчёт не идёт
+  const box = new THREE.Box3();
+  src.traverse((o) => { if (o.isMesh && !o.userData.fringe) box.expandByObject(o); });
   const size = box.getSize(new THREE.Vector3());
   const k = H / size.y;
   // фигурка приводится к нужному росту, подошвы — в ноль, середина — на ось
@@ -83,7 +85,8 @@ export function buildRig(src, cfg) {
     let mat = o.material;
     if (dbg) { geo.setAttribute('color', new THREE.BufferAttribute(dbg, 3)); mat = new THREE.MeshBasicMaterial({ vertexColors: true }); }
     const mesh = new THREE.SkinnedMesh(geo, mat);
-    mesh.castShadow = true; mesh.frustumCulled = false;
+    mesh.castShadow = !o.userData.fringe; mesh.frustumCulled = false;
+    if (o.userData.fringe && dbg) mesh.visible = false;
     group.add(mesh);
     mesh.bind(skeleton, new THREE.Matrix4());
   });

@@ -306,7 +306,11 @@ function start() {
       obj.updateMatrixWorld(true);
       if (!g.animations.length) {
         // цельная фигурка без скелета: кости и движения строятся в коде
-        obj.traverse((o) => { if (o.isMesh && o.geometry.attributes.color && o.material.map) o.material = furMaterial(o.material.map); });
+        obj.traverse((o) => {
+          if (!o.isMesh || !o.material.map) return;
+          if (o.material.name === 'Fringe') { o.userData.fringe = true; o.material = fringeMaterial(o.material.map); }
+          else if (o.geometry.attributes.color) o.material = furMaterial(o.material.map);
+        });
         const rig = buildRig(obj, { ...MASCOT.rig, height: MODEL_H, yaw: MODEL_YAW, debug: QS.has('weights') });
         mascot.add(rig.group);
         model = { rig, clips: rig.clips, head: rig.head, cur: null };
@@ -336,14 +340,41 @@ function start() {
     }, undefined, useProc);
   }
   // Материал хомяка: спереди — картинка, там, где её не видно (вес в альфе цвета вершины), — цвет вершины с рисунком шерсти.
+  // Кайма: тонкий слой с рисунком по срединной поверхности фигуры. Тело модели его закрывает, наружу выглядывает только
+  // мягкий пушистый край шерсти с картинки. Виден только спереди: при повороте плавно гаснет, тело остаётся цельным.
+  function fringeMaterial(map) {
+    const mat = new THREE.MeshBasicMaterial({ map, alphaToCoverage: true, toneMapped: false, side: THREE.DoubleSide, fog: false });
+    mat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', `#include <common>
+          varying vec3 vFrontN; varying vec3 vView;`)
+        .replace('#include <skinnormal_vertex>', `#include <skinnormal_vertex>
+          #ifdef USE_SKINNING
+            vFrontN = normalMatrix * (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
+          #else
+            vFrontN = normalMatrix * vec3(0.0, 0.0, 1.0);
+          #endif`)
+        .replace('#include <project_vertex>', `#include <project_vertex>
+          vView = -mvPosition.xyz;`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', `#include <common>
+          varying vec3 vFrontN; varying vec3 vView;`)
+        .replace('#include <map_fragment>', `
+          vec4 texel = texture2D(map, vMapUv);
+          float frontView = smoothstep(0.62, 0.9, dot(normalize(vFrontN), normalize(vView)));
+          diffuseColor = vec4(texel.rgb, texel.a * frontView);
+          if (diffuseColor.a < 0.06) discard;`);
+    };
+    return mat;
+  }
   function furMaterial(map) {
     map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    // Спереди хомяк — это сама картинка клиента: её цвета (без цветокоррекции сцены), её свет и её мягкий пушистый контур
-    // (альфа текстуры срезает модель по силуэту рисунка). Чем сильнее модель повёрнута, тем больше работает цвет вершин.
+    // Спереди хомяк — это сама картинка клиента: её цвета (без цветокоррекции сцены) и её свет. Чем сильнее модель
+    // повёрнута, тем больше работает цвет вершин. Тело всегда цельное и непрозрачное; пушистый край даёт слой-кайма.
     const mat = new THREE.MeshPhysicalMaterial({
       map, vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.3, specularIntensity: 0.15,
       sheen: 0.3, sheenColor: new THREE.Color('#bfeef0'), sheenRoughness: 0.6,
-      alphaToCoverage: true, toneMapped: false,
+      toneMapped: false,
     });
     mat.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader
@@ -368,30 +399,34 @@ function start() {
                        mix(mix(fh(i + vec3(0,0,1)), fh(i + vec3(1,0,1)), f.x), mix(fh(i + vec3(0,1,1)), fh(i + vec3(1,1,1)), f.x), f.y), f.z); }`)
         .replace('#include <map_fragment>', `
           vec4 texel = texture2D(map, vMapUv);
-          // контур рисунка срезает модель только при взгляде спереди; сбоку и сзади модель видна целиком
+          // насколько эта часть тела сейчас повёрнута к камере лицом (с учётом поворота головы)
           float frontView = smoothstep(0.6, 0.88, dot(normalize(vFrontN), normalize(vViewPosition)));
-          // боковые стенки режутся по сглаженному контуру: иначе тонкие волоски рисунка вытягиваются на них в «бахрому»
-          float side = 1.0 - smoothstep(0.1, 0.45, vRestNz);
-          float soft = texture2D(map, vMapUv, 3.0).a;
-          float cut = mix(1.0, mix(texel.a, smoothstep(0.35, 0.65, soft), side), frontView);
-          // то, что в исходной позе смотрит назад, при взгляде спереди не рисуется: иначе из-за контура торчат обрывки спины
-          cut *= 1.0 - frontView * (1.0 - smoothstep(-0.18, 0.0, vRestNz)) * (1.0 - smoothstep(0.75, 0.97, soft));   // только у края силуэта: в глубине (подол, складки) дырок быть не должно
-          if (cut < 0.3) discard;
-          diffuseColor.a = cut;
           vec3 fill = vColor.rgb;
           float furry = clamp((fill.b - fill.r) * 7.0, 0.0, 1.0);                    // шерсть бирюзовая, костюм серый
-          vec3 fp = vRest * vec3(46.0, 9.0, 46.0);                                   // волоски вытянуты сверху вниз
-          float strand = fn(fp) * 0.6 + fn(fp * vec3(2.3, 2.0, 2.3) + 7.0) * 0.4;
-          fill *= mix(1.0, 0.8 + strand * 0.45, furry);
+          // шерсть на спине и боках: тонкие волоски, вытянутые сверху вниз, в два слоя, и крупные мягкие пятна — без повторов
+          vec3 fp = vec3(vRest.x * 56.0, vRest.y * 8.5, vRest.z * 56.0);
+          float strand = fn(fp) * 0.5 + fn(fp * vec3(2.1, 1.7, 2.1) + 7.3) * 0.3 + fn(vRest * 3.3 + 2.0) * 0.2;
+          fill *= mix(1.0, 0.76 + strand * 0.5, furry);
           // в альфе цвета вершины два веса: строгий (картинке можно верить под любым углом) и свободный (только анфас)
           float wLoose = min(1.0, vColor.a * 2.0), wStrict = max(0.0, vColor.a * 2.0 - 1.0);
           float wPhoto = mix(wStrict, wLoose, frontView);
+          // у самого контура рисунка картинка полупрозрачна — там вместо неё берётся заливка, чтобы не подмешивался фон
+          wPhoto *= smoothstep(0.55, 0.95, texel.a);
+          // у самой кромки картинка годится только строго анфас: чуть сбоку светлые волоски края растягиваются в блики,
+          // поэтому при повороте кромка переходит на заливку
+          float fvRaw = dot(normalize(vFrontN), normalize(vViewPosition));
+          float nearEdge = 1.0 - smoothstep(0.62, 0.97, texture2D(map, vMapUv, 4.6).a);
+          wPhoto *= 1.0 - nearEdge * (1.0 - smoothstep(0.9, 0.985, fvRaw));
           diffuseColor.rgb = mix(fill, texel.rgb, wPhoto);
+          float furFill = furry * (1.0 - wPhoto);
           float furMask = mix(furry, clamp((texel.b - texel.r) * 5.0, 0.0, 1.0), wPhoto);`)
         .replace('#include <color_fragment>', '')
         // картинка уже нарисована со своим светом: большая часть её яркости идёт как собственное свечение
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           totalEmissiveRadiance += diffuseColor.rgb * uGlow;
+          // мягкая светлая кайма по краю меха на спине и боках — как у пушистой шерсти против света
+          float rim = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 2.4);
+          totalEmissiveRadiance += vec3(0.62, 0.9, 0.9) * rim * 0.3 * furFill;
           diffuseColor.rgb *= 1.0 - uGlow;`)
         .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
           material.sheenColor *= furMask;`);
@@ -532,7 +567,8 @@ function start() {
 
   // ── Взаимодействие ─────────────────────────────────────────────────
   const ptr = { x: LOOK ? LOOK[0] : 0, y: LOOK ? LOOK[1] : 0 };
-  let drag = null, yaw = 0, yawV = 0, lastTouch = 0, hop = 0, wave = 0;
+  const SPIN = QS.has('spin');                                   // ?spin=градусы — застывший поворот персонажа, для проверки
+  let drag = null, yaw = SPIN ? parseFloat(QS.get('spin')) * Math.PI / 180 : 0, yawV = 0, lastTouch = 0, hop = 0, wave = 0;
   window.addEventListener('pointermove', (e) => {
     if (!LOOK) {
       ptr.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -677,7 +713,7 @@ function start() {
     // вращение рукой с инерцией и возвратом
     if (!drag) {
       yaw += yawV; yawV *= 0.94;
-      if (performance.now() - lastTouch > 2600) yaw = lerp(yaw, Math.round(yaw / (Math.PI * 2)) * Math.PI * 2, 1 - Math.exp(-dt * 1.6));
+      if (!SPIN && performance.now() - lastTouch > 2600) yaw = lerp(yaw, Math.round(yaw / (Math.PI * 2)) * Math.PI * 2, 1 - Math.exp(-dt * 1.6));
     }
     // облёт камеры по кнопке
     let oa = 0;
