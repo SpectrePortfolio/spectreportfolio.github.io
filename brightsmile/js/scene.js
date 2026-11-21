@@ -14,7 +14,9 @@ const MASCOT = {
 // Параметры адреса для проверки: ?model=путь&yaw=&h= — другая модель, ?cam=x,y,z,tx,ty,tz — камера вплотную без интерфейса,
 // ?act=Wave&at=0.5 — застывший кадр анимации, ?look=x,y — направление взгляда, ?still — без вступления,
 // ?q=N — уровень качества, ?aa=0/1 — сглаживание, ?nogl — вид без WebGL, ?prof — без ограничения кадров (замер).
-const MODEL = QS.has('proc') ? null : (QS.get('model') || MASCOT.url);
+// ?model= принимает только файлы из папки models этого сайта — чужой адрес подставить нельзя
+const ASKED = QS.get('model');
+const MODEL = QS.has('proc') ? null : (ASKED && /^models\/[\w-]+\.glb$/.test(ASKED) ? ASKED : MASCOT.url);
 const OWN = MODEL === MASCOT.url;
 const MODEL_YAW = parseFloat(QS.get('yaw') || (OWN ? MASCOT.yaw : 0));
 const MODEL_H = parseFloat(QS.get('h') || (OWN ? MASCOT.height : 2.25));
