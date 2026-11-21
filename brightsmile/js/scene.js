@@ -3,13 +3,17 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { buildRig } from './mascot-rig.js';
 
-// Персонаж: готовая модель с костями и анимациями (Quaternius «Animated Platformer Character», лицензия CC0).
-// tint — перекраска материалов по имени; чтобы вернуть персонажа, собранного в коде, откройте страницу с ?proc.
+// Персонаж — хомяк Брайти: цельная фигурка без скелета (форма из генератора по картинке клиента, картинка наложена
+// спереди как текстура, спина и бока докрашены цветом вершин). Кости и движения строит mascot-rig.js.
+// Чтобы вернуть персонажа, собранного в коде, откройте страницу с ?proc.
 const QS = new URLSearchParams(location.search);
 const MASCOT = {
-  url: 'models/mascot.glb', yaw: 0, height: 2.55,
-  tint: { Main: '#1b93b4', Main2: '#d9efe6', Main_Light: '#f3b73c' },
+  url: 'models/mascot.glb', yaw: 0, height: 2.42,
+  // каркас — доли высоты фигурки (см. mascot-rig.js); ?weights показывает раскладку по костям
+  rig: { neck: 0.5, neckBlend: 0.03, neckZ: 0, cheekX: [0.12, 0.22], cheekDrop: 0.05, hip: 0.2, hipBlend: 0.07, ears: [[-0.27, 0.81, 0, 0.1], [0.21, 0.88, 0, 0.1]] },
 };
 // Параметры адреса для проверки: ?model=путь&yaw=&h= — другая модель, ?cam=x,y,z,tx,ty,tz — камера вплотную без интерфейса,
 // ?act=Wave&at=0.5 — застывший кадр анимации, ?look=x,y — направление взгляда, ?still — без вступления,
@@ -281,7 +285,7 @@ function start() {
   tooth.scale.setScalar(TOOTH_S);
   spin.add(tooth);
   reflect(stage);
-  const FEET_Y = 2.4, MS = 1.4;
+  const FEET_Y = 2.455, MS = 1.4;
 
   // ── Персонаж ───────────────────────────────────────────────────────
   const LDIR = key.position.clone().normalize();
@@ -297,30 +301,22 @@ function start() {
   const useProc = () => import('./mascot-proc.js').then((m) => { proc = m.buildProc(LDIR); mascot.add(proc.group); setReady(); });
   if (!MODEL) useProc();
   if (MODEL) {
-    new GLTFLoader().load(MODEL, (g) => {
+    new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(MODEL, (g) => {
       const obj = g.scene;
       obj.updateMatrixWorld(true);
+      if (!g.animations.length) {
+        // цельная фигурка без скелета: кости и движения строятся в коде
+        obj.traverse((o) => { if (o.isMesh && o.geometry.attributes.color && o.material.map) o.material = furMaterial(o.material.map); });
+        const rig = buildRig(obj, { ...MASCOT.rig, height: MODEL_H, yaw: MODEL_YAW, debug: QS.has('weights') });
+        mascot.add(rig.group);
+        model = { rig, clips: rig.clips, head: rig.head, cur: null };
+        setReady();
+        return;
+      }
+      // модель со своим скелетом и записанными анимациями (?model=…)
       let headBone = null;
-      const mats = {};
       obj.traverse((o) => {
-        if (o.isMesh) {
-          o.castShadow = true; o.frustumCulled = false;
-          if (OWN) {
-            // гладкие грани вместо «рубленых» и глянцевое покрытие, как у виниловой игрушки
-            const geo = o.geometry.clone();
-            geo.deleteAttribute('normal');
-            geo.computeBoundingBox();
-            const sm = mergeVertices(geo, geo.boundingBox.getSize(new THREE.Vector3()).length() * 2e-5);   // допуск от размера: модель задана в мелких единицах
-            sm.computeVertexNormals();
-            o.geometry = sm;
-            const src = o.material;
-            const eye = src.name === 'EyeColor' || src.name === 'Black';
-            o.material = mats[src.name] || (mats[src.name] = new THREE.MeshPhysicalMaterial({
-              name: src.name, color: MASCOT.tint[src.name] || src.color, metalness: 0,
-              roughness: eye ? 0.06 : 0.38, clearcoat: eye ? 1 : 0.6, clearcoatRoughness: eye ? 0.04 : 0.28, envMapIntensity: eye ? 2.6 : 1,
-            }));
-          }
-        }
+        if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; }
         if (o.isBone && !headBone && /^head$/i.test(o.name)) headBone = o;
       });
       const box = new THREE.Box3().setFromObject(obj);
@@ -339,8 +335,73 @@ function start() {
       setReady();
     }, undefined, useProc);
   }
+  // Материал хомяка: спереди — картинка, там, где её не видно (вес в альфе цвета вершины), — цвет вершины с рисунком шерсти.
+  function furMaterial(map) {
+    map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    // Спереди хомяк — это сама картинка клиента: её цвета (без цветокоррекции сцены), её свет и её мягкий пушистый контур
+    // (альфа текстуры срезает модель по силуэту рисунка). Чем сильнее модель повёрнута, тем больше работает цвет вершин.
+    const mat = new THREE.MeshPhysicalMaterial({
+      map, vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.3, specularIntensity: 0.15,
+      sheen: 0.3, sheenColor: new THREE.Color('#bfeef0'), sheenRoughness: 0.6,
+      alphaToCoverage: true, toneMapped: false,
+    });
+    mat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', `#include <common>
+          varying vec3 vRest; varying vec3 vFrontN; varying float vRestNz;`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          vRest = position; vRestNz = normal.z;`)
+        // куда сейчас смотрит «перёд» этой части тела (с учётом поворота головы) — в координатах камеры
+        .replace('#include <skinnormal_vertex>', `#include <skinnormal_vertex>
+          #ifdef USE_SKINNING
+            vFrontN = normalMatrix * (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
+          #else
+            vFrontN = normalMatrix * vec3(0.0, 0.0, 1.0);
+          #endif`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', `#include <common>
+          uniform float uGlow;
+          varying vec3 vRest; varying vec3 vFrontN; varying float vRestNz;
+          float fh(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+          float fn(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(mix(fh(i), fh(i + vec3(1,0,0)), f.x), mix(fh(i + vec3(0,1,0)), fh(i + vec3(1,1,0)), f.x), f.y),
+                       mix(mix(fh(i + vec3(0,0,1)), fh(i + vec3(1,0,1)), f.x), mix(fh(i + vec3(0,1,1)), fh(i + vec3(1,1,1)), f.x), f.y), f.z); }`)
+        .replace('#include <map_fragment>', `
+          vec4 texel = texture2D(map, vMapUv);
+          // контур рисунка срезает модель только при взгляде спереди; сбоку и сзади модель видна целиком
+          float frontView = smoothstep(0.6, 0.88, dot(normalize(vFrontN), normalize(vViewPosition)));
+          // боковые стенки режутся по сглаженному контуру: иначе тонкие волоски рисунка вытягиваются на них в «бахрому»
+          float side = 1.0 - smoothstep(0.1, 0.45, vRestNz);
+          float soft = texture2D(map, vMapUv, 3.0).a;
+          float cut = mix(1.0, mix(texel.a, smoothstep(0.35, 0.65, soft), side), frontView);
+          // то, что в исходной позе смотрит назад, при взгляде спереди не рисуется: иначе из-за контура торчат обрывки спины
+          cut *= 1.0 - frontView * (1.0 - smoothstep(-0.18, 0.0, vRestNz)) * (1.0 - smoothstep(0.75, 0.97, soft));   // только у края силуэта: в глубине (подол, складки) дырок быть не должно
+          if (cut < 0.3) discard;
+          diffuseColor.a = cut;
+          vec3 fill = vColor.rgb;
+          float furry = clamp((fill.b - fill.r) * 7.0, 0.0, 1.0);                    // шерсть бирюзовая, костюм серый
+          vec3 fp = vRest * vec3(46.0, 9.0, 46.0);                                   // волоски вытянуты сверху вниз
+          float strand = fn(fp) * 0.6 + fn(fp * vec3(2.3, 2.0, 2.3) + 7.0) * 0.4;
+          fill *= mix(1.0, 0.8 + strand * 0.45, furry);
+          // в альфе цвета вершины два веса: строгий (картинке можно верить под любым углом) и свободный (только анфас)
+          float wLoose = min(1.0, vColor.a * 2.0), wStrict = max(0.0, vColor.a * 2.0 - 1.0);
+          float wPhoto = mix(wStrict, wLoose, frontView);
+          diffuseColor.rgb = mix(fill, texel.rgb, wPhoto);
+          float furMask = mix(furry, clamp((texel.b - texel.r) * 5.0, 0.0, 1.0), wPhoto);`)
+        .replace('#include <color_fragment>', '')
+        // картинка уже нарисована со своим светом: большая часть её яркости идёт как собственное свечение
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          totalEmissiveRadiance += diffuseColor.rgb * uGlow;
+          diffuseColor.rgb *= 1.0 - uGlow;`)
+        .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+          material.sheenColor *= furMask;`);
+      sh.uniforms.uGlow = { value: parseFloat(QS.get('glow') || '0.82') };
+    };
+    return mat;
+  }
   // переключить анимацию модели: once — проиграть один раз и вернуться к Idle
   function act(name, once, fade = 0.22) {
+    if (model && model.rig) return model.rig.act(name, once);
     const a = model && model.clips[name];
     if (!a) return false;
     if (model.cur === a && !once) return true;
@@ -352,7 +413,7 @@ function start() {
     model.cur = a;
     return true;
   }
-  const busy = () => !!(model && model.cur && model.cur !== model.clips.Idle);
+  const busy = () => !!(model && (model.rig ? model.rig.busy() : model.cur && model.cur !== model.clips.Idle));
 
   // ── Пылинки в свете ────────────────────────────────────────────────
   const dustN = 110, dustP = new Float32Array(dustN * 3);
@@ -637,9 +698,10 @@ function start() {
     hv.x = lerp(hv.x, lx, 1 - Math.exp(-dt * 5));
     hv.y = lerp(hv.y, ptr.y, 1 - Math.exp(-dt * 5));
     if (model) {
-      if (POSE && model.clips[POSE]) { if (model.cur !== model.clips[POSE]) act(POSE); model.mixer.setTime(parseFloat(QS.get('at') || '0.6')); }
+      if (model.rig) { if (POSE && model.clips[POSE]) model.rig.pose(POSE, parseFloat(QS.get('at') || '0.6')); else model.rig.update(dt); }
+      else if (POSE && model.clips[POSE]) { if (model.cur !== model.clips[POSE]) act(POSE); model.mixer.setTime(parseFloat(QS.get('at') || '0.6')); }
       else model.mixer.update(dt);
-      if (model.head) { model.head.rotation.y += hv.x * 0.45 - face * 0.5; model.head.rotation.x += hv.y * 0.18; }
+      if (model.head) { const k = model.rig ? 0.62 : 1; model.head.rotation.y += (hv.x * 0.45 - face * 0.5) * k; model.head.rotation.x += hv.y * 0.18 * k; }   // цельная модель поворачивает голову скромнее: рисунок держится только анфас
     }
     if (proc) proc.update(t, dt, hv, wave);
     dust.rotation.y = t * 0.018; dust.position.y = Math.sin(t * 0.23) * 0.18;
@@ -708,7 +770,9 @@ function toothGeometry() {
     const bx = bump(x, 1.0), bz = bump(z, 0.9);
     if (y > 0) {
       const top = smoothstep(0.3, 0.92, y);
-      y = y * 0.82 + top * (0.3 * bx * bz - 0.1 + 0.06 * bx);
+      // посередине — ровная площадка для персонажа на уровне вершин бугров: ступни стоят на виду, бугры их не закрывают
+      const plat = 1 - smoothstep(0.28, 0.6, Math.hypot(x, z));
+      y = y * 0.82 + top * ((0.2 * bx * bz - 0.1 + 0.06 * bx) * (1 - plat) + 0.11 * plat);
       const waist = 1 - 0.07 * (1 - smoothstep(0, 0.5, y));
       x *= waist; z *= waist;
     } else {

@@ -1,7 +1,8 @@
 Sources and licences
 
-mascot.glb — "Animated Platformer Character" by Quaternius, CC0 1.0 (public domain), https://poly.pizza/m/kKtL4zvS3n
-  Recoloured in code; 8 of the 18 original animations kept.
+mascot.glb — Brighty the hamster. Shape generated from the client's character artwork with Hunyuan3D-2 (Tencent),
+  simplified and compressed (meshopt); the client's artwork is projected onto the front as the texture,
+  the back and sides are filled with vertex colours. Bones and motion are built in js/mascot-rig.js.
 fonts/outfit-latin.woff2 — Outfit, Google Fonts, SIL Open Font License 1.1.
-vendor/three — three.js 0.170, MIT licence (see vendor/three/LICENSE).
+vendor/three — three.js 0.170, MIT licence (see vendor/three/LICENSE); includes the meshoptimizer decoder (MIT).
 Photos — Unsplash licence.
